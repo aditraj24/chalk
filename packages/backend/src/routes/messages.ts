@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { getDb, messages } from '@chalk/shared';
+import { getDb, messages, chats } from '@chalk/shared';
 import type { SendMessageRequest } from '@chalk/shared';
 import { eq, asc } from 'drizzle-orm';
 import { requireAuth } from '../middleware/auth.js';
@@ -51,6 +51,18 @@ messageRoutes.post(
 
       const db = getDb();
 
+      // Fetch the chat's current mode configuration
+      const [chatRecord] = await db
+        .select({ mode: chats.mode, perfMode: chats.perfMode })
+        .from(chats)
+        .where(eq(chats.id, req.chatId!))
+        .limit(1);
+
+      if (!chatRecord) {
+        res.status(404).json({ error: 'Chat not found' });
+        return;
+      }
+
       // Persist the user message
       const [userMessage] = await db
         .insert(messages)
@@ -72,6 +84,8 @@ messageRoutes.post(
       await ragPipeline({
         chatId: req.chatId!,
         query: content.trim(),
+        mode: chatRecord.mode as 'focus' | 'explore',
+        perfMode: chatRecord.perfMode as 'speed' | 'balanced' | 'accuracy',
         onToken: (token: string) => {
           res.write(`data: ${JSON.stringify({ type: 'token', content: token })}\n\n`);
         },
@@ -85,7 +99,7 @@ messageRoutes.post(
               chatId: req.chatId!,
               role: 'assistant',
               content: fullContent,
-              modeUsed: 'focus', // MVP: Focus mode only
+              modeUsed: chatRecord.mode,
               retrievedChunkIds: JSON.stringify(chunkIds),
             })
             .then(() => {

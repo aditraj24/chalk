@@ -164,3 +164,51 @@ documentRoutes.delete(
     }
   },
 );
+
+/**
+ * GET /api/chats/:chatId/documents/progress — SSE stream of document status
+ */
+documentRoutes.get(
+  '/:chatId/documents/progress',
+  requireChatOwnership,
+  (req: ChatScopedRequest, res: Response) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const db = getDb();
+    let isClientConnected = true;
+
+    // Send initial connection ack
+    res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+    const pollInterval = setInterval(async () => {
+      if (!isClientConnected) {
+        clearInterval(pollInterval);
+        return;
+      }
+      try {
+        const docs = await db
+          .select({
+            id: documents.id,
+            status: documents.status,
+            pageCount: documents.pageCount,
+          })
+          .from(documents)
+          .where(eq(documents.chatId, req.chatId!));
+
+        res.write(`data: ${JSON.stringify({ type: 'progress', documents: docs })}\n\n`);
+      } catch (err) {
+        console.error('[Documents SSE] Polling error:', err);
+      }
+    }, 2000);
+
+    req.on('close', () => {
+      isClientConnected = false;
+      clearInterval(pollInterval);
+      res.end();
+    });
+  },
+);

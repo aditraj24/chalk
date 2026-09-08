@@ -5,6 +5,7 @@ import { clerkMiddleware } from '@clerk/express';
 import { chatRoutes } from './routes/chats.js';
 import { documentRoutes } from './routes/documents.js';
 import { messageRoutes } from './routes/messages.js';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -22,6 +23,16 @@ app.use(clerkMiddleware());
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ─── Rate Limiting ─────────────────────────────────────
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
 
 // ─── API Routes ────────────────────────────────────────
 app.use('/api/chats', chatRoutes);

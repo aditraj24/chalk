@@ -114,6 +114,61 @@ export const documentApi = {
     apiFetch<{ success: boolean }>(`/chats/${chatId}/documents/${docId}`, {
       method: 'DELETE',
     }),
+
+  /**
+   * Listen to SSE progress updates for documents in a chat.
+   */
+  progress: async function* (chatId: string): AsyncGenerator<{ type: string; documents?: Partial<Document>[] }> {
+    const url = `${API_BASE}/chats/${chatId}/documents/progress`;
+
+    let token: string | null = null;
+    try {
+      // @ts-expect-error Clerk global
+      const clerk = window.Clerk;
+      if (clerk?.session) {
+        token = await clerk.session.getToken();
+      }
+    } catch {
+      // No Clerk session
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const event = JSON.parse(line.slice(6));
+            yield event;
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
+    }
+  },
 };
 
 // ─── Message API ───────────────────────────────────────
