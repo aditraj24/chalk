@@ -29,7 +29,6 @@ interface ChatViewProps {
  * and message input. Shows EmptyState if no documents are ingested.
  */
 export function ChatView({
-  chatId,
   title,
   mode,
   perfMode,

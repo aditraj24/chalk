@@ -22,7 +22,7 @@ export async function requireChatOwnership(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const chatId = req.params.chatId;
+    const chatId = req.params.chatId as string;
     const userId = req.userId;
 
     if (!chatId || !userId) {
@@ -49,7 +49,7 @@ export async function requireChatOwnership(
       return;
     }
 
-    req.chatId = chatId;
+    req.chatId = chatId as string;
     next();
   } catch (error) {
     console.error('[ChatOwnership] Error:', error);

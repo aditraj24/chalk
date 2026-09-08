@@ -51,3 +51,47 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
 
   return embeddings;
 }
+
+// ─── Reranker (Cross-Encoder) ──────────────────────────
+
+let reranker: any = null;
+
+async function getReranker() {
+  if (reranker) return reranker;
+
+  const { pipeline: transformersPipeline } = await import('@xenova/transformers');
+  // Cross-encoders use the text-classification pipeline
+  reranker = await transformersPipeline('text-classification', 'Xenova/bge-reranker-v2-m3', {
+    quantized: true,
+  });
+
+  console.log('[Embeddings] BGE-Reranker-v2-M3 model loaded');
+  return reranker;
+}
+
+/**
+ * Score and sort chunks against a query using a cross-encoder.
+ */
+export async function rerankChunks<T extends { content: string }>(
+  query: string,
+  chunks: T[],
+  topK?: number
+): Promise<(T & { rerankScore: number })[]> {
+  if (chunks.length === 0) return [];
+  
+  const ranker = await getReranker();
+  const results = [];
+
+  for (const chunk of chunks) {
+    // Transformers.js text-classification with cross-encoder takes two strings
+    const output = await ranker(query, chunk.content);
+    // Depending on the model, it might return [{ label: 'LABEL_0', score: 0.99 }]
+    const score = output[0]?.score ?? 0;
+    results.push({ ...chunk, rerankScore: score });
+  }
+
+  // Sort descending by score
+  results.sort((a, b) => b.rerankScore - a.rerankScore);
+
+  return topK ? results.slice(0, topK) : results;
+}

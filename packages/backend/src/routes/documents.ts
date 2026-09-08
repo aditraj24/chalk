@@ -128,7 +128,7 @@ documentRoutes.delete(
   requireChatOwnership,
   async (req: ChatScopedRequest, res: Response) => {
     try {
-      const { docId } = req.params;
+      const docId = req.params.docId as string;
       const db = getDb();
 
       // Verify the document belongs to this chat

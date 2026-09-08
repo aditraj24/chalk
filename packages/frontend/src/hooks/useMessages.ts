@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
-import { messageApi, type Message, type StreamEvent } from '../lib/api';
+import { messageApi, type StreamEvent } from '../lib/api';
 
 export function useMessages(chatId: string | undefined) {
   return useQuery({

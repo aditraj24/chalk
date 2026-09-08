@@ -92,7 +92,7 @@ messageRoutes.post(
               res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
               res.end();
             })
-            .catch((err) => {
+            .catch((err: unknown) => {
               console.error('[Messages] Persist error:', err);
               res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to save response' })}\n\n`);
               res.end();
