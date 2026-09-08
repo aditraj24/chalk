@@ -10,6 +10,8 @@ console.log('🖍️  Chalk ingestion worker starting...');
 console.log(`   Queue: ${INGESTION_QUEUE_NAME}`);
 console.log(`   Redis: ${REDIS_URL}`);
 
+const workerConcurrency = parseInt(process.env.WORKER_CONCURRENCY || '2', 10);
+
 const worker = new Worker<IngestionJob>(
   INGESTION_QUEUE_NAME,
   async (job) => {
@@ -19,10 +21,10 @@ const worker = new Worker<IngestionJob>(
   },
   {
     connection: { url: REDIS_URL },
-    concurrency: 2, // Process 2 documents at a time
+    concurrency: workerConcurrency, 
     limiter: {
-      max: 5,
-      duration: 60000, // Max 5 jobs per minute (CPU embedding is heavy)
+      max: workerConcurrency * 3, // dynamically scale rate limiter with concurrency
+      duration: 60000, 
     },
   },
 );

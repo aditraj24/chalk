@@ -10,6 +10,7 @@ import type { IngestionJob } from '@chalk/shared';
 import { eq } from 'drizzle-orm';
 import fs from 'fs/promises';
 import path from 'path';
+import officeParser from 'officeparser';
 
 // ─── Embedding (local BGE-M3 via ONNX) ────────────────
 let extractor: any = null;
@@ -62,9 +63,27 @@ export async function processIngestion(job: Job<IngestionJob>): Promise<void> {
     await job.updateProgress(20);
 
     // ─── Step 2: Extract text ──────────────────────
-    const pdfData = await pdfParse(pdfBuffer);
-    const fullText = pdfData.text;
-    const pageCount = pdfData.numpages;
+    let fullText = '';
+    let pageCount = 1;
+
+    const fileExtension = path.extname(filename).toLowerCase();
+
+    if (fileExtension === '.pdf') {
+      const pdfData = await pdfParse(pdfBuffer);
+      fullText = pdfData.text;
+      pageCount = pdfData.numpages;
+    } else if (fileExtension === '.docx' || fileExtension === '.pptx') {
+      fullText = await (officeParser as any).parseOfficeAsync(pdfBuffer);
+      // We can't reliably extract pages from officeparser, assume 1 page per 2000 chars roughly
+      pageCount = Math.max(1, Math.ceil(fullText.length / 2000));
+    } else if (fileExtension === '.txt' || fileExtension === '.md') {
+      fullText = pdfBuffer.toString('utf8');
+      pageCount = Math.max(1, Math.ceil(fullText.length / 2000));
+    } else {
+      // Fallback
+      fullText = pdfBuffer.toString('utf8');
+      pageCount = Math.max(1, Math.ceil(fullText.length / 2000));
+    }
 
     // Update page count
     await db

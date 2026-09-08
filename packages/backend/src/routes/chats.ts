@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { getDb, chats } from '@chalk/shared';
+import { getDb, getReadDb, chats } from '@chalk/shared';
 import type { CreateChatRequest, UpdateChatRequest } from '@chalk/shared';
 import { eq, and, isNull, desc } from 'drizzle-orm';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.js';
@@ -15,7 +15,7 @@ chatRoutes.use(requireAuth);
  */
 chatRoutes.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = getDb();
+    const db = getReadDb();
     const userChats = await db
       .select()
       .from(chats)

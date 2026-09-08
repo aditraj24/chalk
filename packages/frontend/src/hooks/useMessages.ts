@@ -1,13 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import { messageApi, type StreamEvent } from '../lib/api';
 
 export function useMessages(chatId: string | undefined) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['messages', chatId],
-    queryFn: () => messageApi.history(chatId!),
-    select: (data) => data.messages,
+    queryFn: ({ pageParam }) => messageApi.history(chatId!, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.hasMore || lastPage.messages.length === 0) return undefined;
+      return lastPage.messages[0].createdAt;
+    },
     enabled: !!chatId,
+    select: (data) => data.pages.flatMap((page) => page.messages),
   });
 }
 

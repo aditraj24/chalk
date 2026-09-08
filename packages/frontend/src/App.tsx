@@ -1,8 +1,15 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { HomePage } from './pages/HomePage';
 import { ChatPage } from './pages/ChatPage';
 import { useTheme } from './hooks/useTheme';
+
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error("Missing Publishable Key");
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,23 +34,50 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/chat/:chatId" element={<ChatPage />} />
+      <Route
+        path="/"
+        element={
+          <>
+            <SignedIn>
+              <HomePage />
+            </SignedIn>
+            <SignedOut>
+              <RedirectToSignIn />
+            </SignedOut>
+          </>
+        }
+      />
+      <Route
+        path="/chat/:chatId"
+        element={
+          <>
+            <SignedIn>
+              <ChatPage />
+            </SignedIn>
+            <SignedOut>
+              <RedirectToSignIn />
+            </SignedOut>
+          </>
+        }
+      />
     </Routes>
+  );
+}
+
+function AppRoutes() {
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        {/*
-          TODO: Wrap with ClerkProvider when Clerk keys are configured
-          <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
-        */}
-        <AppContent />
-        {/* </ClerkProvider> */}
-      </BrowserRouter>
-    </QueryClientProvider>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }

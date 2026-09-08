@@ -196,8 +196,13 @@ export interface StreamEvent {
 }
 
 export const messageApi = {
-  history: (chatId: string) =>
-    apiFetch<{ messages: Message[] }>(`/chats/${chatId}/messages`),
+  history: (chatId: string, cursor?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (cursor) params.append('cursor', cursor);
+    if (limit) params.append('limit', limit.toString());
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return apiFetch<{ messages: Message[], hasMore: boolean }>(`/chats/${chatId}/messages${qs}`);
+  },
 
   /**
    * Send a message and stream the response via SSE.

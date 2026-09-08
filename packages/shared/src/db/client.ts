@@ -5,9 +5,10 @@ import * as schema from './schema.js';
 const { Pool } = pg;
 
 let pool: pg.Pool | null = null;
+let readPool: pg.Pool | null = null;
 
 /**
- * Get or create a singleton Postgres connection pool.
+ * Get or create a singleton Postgres connection pool for Writes/Primary.
  */
 export function getPool(): pg.Pool {
   if (!pool) {
@@ -21,11 +22,32 @@ export function getPool(): pg.Pool {
 }
 
 /**
- * Get a Drizzle ORM instance connected to Postgres.
- * Uses a singleton pool under the hood.
+ * Get or create a singleton Postgres connection pool for Reads/Replica.
+ * Falls back to primary if DATABASE_READ_URL is not set.
+ */
+export function getReadPool(): pg.Pool {
+  if (!readPool) {
+    const connectionString = process.env.DATABASE_READ_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+    readPool = new Pool({ connectionString });
+  }
+  return readPool;
+}
+
+/**
+ * Get a Drizzle ORM instance connected to Postgres (Primary).
  */
 export function getDb() {
   return drizzle(getPool(), { schema });
+}
+
+/**
+ * Get a Drizzle ORM instance connected to Postgres (Replica).
+ */
+export function getReadDb() {
+  return drizzle(getReadPool(), { schema });
 }
 
 export type Database = ReturnType<typeof getDb>;

@@ -75,4 +75,10 @@ export const EXPLORE_ALLOWED_DOMAINS = [
 export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 /** Allowed MIME types for upload */
-export const ALLOWED_MIME_TYPES = ['application/pdf'] as const;
+export const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // pptx
+  'text/plain', // txt
+  'text/markdown', // md
+] as const;

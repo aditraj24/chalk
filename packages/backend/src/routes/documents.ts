@@ -23,7 +23,7 @@ const upload = multer({
     if (ALLOWED_MIME_TYPES.includes(file.mimetype as typeof ALLOWED_MIME_TYPES[number])) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF files are allowed'));
+      cb(new Error('File type not supported. Use PDF, DOCX, PPTX, TXT, or MD.'));
     }
   },
 });

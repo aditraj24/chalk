@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
-import { getDb, messages, chats } from '@chalk/shared';
+import { getDb, getReadDb, messages, chats } from '@chalk/shared';
 import type { SendMessageRequest } from '@chalk/shared';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, desc, and, lt } from 'drizzle-orm';
 import { requireAuth } from '../middleware/auth.js';
 import { requireChatOwnership, ChatScopedRequest } from '../middleware/chatOwnership.js';
 import { ragPipeline } from '../services/rag.js';
@@ -19,14 +19,34 @@ messageRoutes.get(
   requireChatOwnership,
   async (req: ChatScopedRequest, res: Response) => {
     try {
-      const db = getDb();
-      const chatMessages = await db
+      const db = getReadDb();
+      const limitParam = parseInt(req.query.limit as string) || 50;
+      const cursor = req.query.cursor as string;
+
+      let query = db
         .select()
         .from(messages)
         .where(eq(messages.chatId, req.chatId!))
-        .orderBy(asc(messages.createdAt));
+        .orderBy(desc(messages.createdAt))
+        .limit(limitParam + 1);
 
-      res.json({ messages: chatMessages });
+      if (cursor) {
+        query = db
+          .select()
+          .from(messages)
+          .where(and(eq(messages.chatId, req.chatId!), lt(messages.createdAt, new Date(cursor))))
+          .orderBy(desc(messages.createdAt))
+          .limit(limitParam + 1);
+      }
+
+      const results = await query;
+      const hasMore = results.length > limitParam;
+      const data = hasMore ? results.slice(0, limitParam) : results;
+
+      // Reverse so frontend gets chronological order
+      const chatMessages = data.reverse();
+
+      res.json({ messages: chatMessages, hasMore });
     } catch (error) {
       console.error('[Messages] History error:', error);
       res.status(500).json({ error: 'Failed to fetch message history' });

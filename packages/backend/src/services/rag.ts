@@ -1,12 +1,14 @@
-import { getDb, chunks, documents } from '@chalk/shared';
+import { chunks, documents } from '@chalk/shared';
 import { TOP_K } from '@chalk/shared';
 import type { RetrievedChunk, CitationMarker } from '@chalk/shared';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getLlm, buildFocusSystemPrompt, buildExploreSystemPrompt } from './llm.js';
 import { getEmbedding, rerankChunks } from './embeddings.js';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { StateGraph, Annotation } from '@langchain/langgraph';
 import { tavily } from '@tavily/core';
+import { getCachedQuery, setCachedQuery } from './redis.js';
+import { defaultVectorStore } from './vectorStore/pgVector.js';
 
 // ─── RAG Pipeline Types ────────────────────────────────
 
@@ -66,10 +68,10 @@ async function retrieveNode(state: typeof GraphState.State) {
 
   // 1. Dense (pgvector)
   const queryEmbedding = await getEmbedding(query);
-  const denseChunks = await denseRetrieve(chatId, queryEmbedding, candidatePoolSize);
+  const denseChunks = await defaultVectorStore.denseRetrieve(chatId, queryEmbedding, candidatePoolSize);
 
   // 2. Sparse (BM25 pg_search/tsvector)
-  const sparseChunks = await sparseRetrieve(chatId, query, candidatePoolSize);
+  const sparseChunks = await defaultVectorStore.sparseRetrieve(chatId, query, candidatePoolSize);
 
   // 3. Fusion (RRF)
   const fusedChunks = fuseRRF(denseChunks, sparseChunks);
@@ -241,6 +243,18 @@ export async function ragPipeline(params: RagPipelineParams): Promise<void> {
   const { chatId, query, mode, perfMode, onToken, onCitations, onComplete, onError } = params;
 
   try {
+    // 0. Check cache
+    const cached = await getCachedQuery(chatId, query, mode, perfMode);
+    if (cached) {
+      console.log('[RAG] Cache hit for query');
+      
+      // We must reconstruct citations from the cached chunks
+      // This is a simplified replay of the cache
+      if (onToken) onToken(cached.generation);
+      onComplete(cached.generation, cached.chunkIds);
+      return;
+    }
+
     const initialState = {
       chatId,
       query,
@@ -258,81 +272,15 @@ export async function ragPipeline(params: RagPipelineParams): Promise<void> {
     const finalState = await compiledGraph.invoke(initialState);
     
     const chunkIds = finalState.retrievedChunks.map((c: RetrievedChunk) => c.id);
+    
+    // Set cache for future
+    await setCachedQuery(chatId, query, mode, perfMode, finalState.generation, chunkIds);
+    
     onComplete(finalState.generation, chunkIds);
   } catch (error) {
     console.error('[RAG] Pipeline error:', error);
     onError(error instanceof Error ? error.message : 'RAG pipeline failed');
   }
-}
-
-// ─── Retrieval Helpers ─────────────────────────────────
-
-async function denseRetrieve(
-  chatId: string,
-  queryEmbedding: number[],
-  topK: number,
-): Promise<RetrievedChunk[]> {
-  const db = getDb();
-  const embeddingStr = `[${queryEmbedding.join(',')}]`;
-
-  const result = await db.execute(sql`
-    SELECT
-      c.id,
-      c.content,
-      c.document_id,
-      c.page_number,
-      c.section_heading,
-      d.filename,
-      1 - (c.embedding <=> ${embeddingStr}::vector) AS similarity
-    FROM chunks c
-    JOIN documents d ON c.document_id = d.id
-    WHERE c.chat_id = ${chatId}
-      AND c.embedding IS NOT NULL
-    ORDER BY c.embedding <=> ${embeddingStr}::vector
-    LIMIT ${topK}
-  `);
-
-  return mapRowsToChunks(result.rows);
-}
-
-async function sparseRetrieve(
-  chatId: string,
-  query: string,
-  topK: number
-): Promise<RetrievedChunk[]> {
-  const db = getDb();
-
-  // Postgres BM25 using ts_rank
-  const result = await db.execute(sql`
-    SELECT
-      c.id,
-      c.content,
-      c.document_id,
-      c.page_number,
-      c.section_heading,
-      d.filename,
-      ts_rank(c.tsv, plainto_tsquery('english', ${query})) AS similarity
-    FROM chunks c
-    JOIN documents d ON c.document_id = d.id
-    WHERE c.chat_id = ${chatId}
-      AND c.tsv @@ plainto_tsquery('english', ${query})
-    ORDER BY similarity DESC
-    LIMIT ${topK}
-  `);
-
-  return mapRowsToChunks(result.rows);
-}
-
-function mapRowsToChunks(rows: Record<string, unknown>[]): RetrievedChunk[] {
-  return rows.map((row) => ({
-    id: row.id as string,
-    content: row.content as string,
-    documentId: row.document_id as string,
-    pageNumber: row.page_number as number | null,
-    sectionHeading: row.section_heading as string | null,
-    similarity: parseFloat(row.similarity as string),
-    filename: row.filename as string,
-  }));
 }
 
 /**

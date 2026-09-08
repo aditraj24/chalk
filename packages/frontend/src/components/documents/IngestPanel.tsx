@@ -74,7 +74,7 @@ export function IngestPanel({ documents, onUpload, isUploading }: IngestPanelPro
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/pdf"
+          accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,.pdf,.docx,.pptx,.txt,.md"
           multiple
           onChange={handleFileSelect}
           hidden

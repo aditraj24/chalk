@@ -1,3 +1,4 @@
+import { UserButton } from '@clerk/clerk-react';
 import { useTheme } from '../../hooks/useTheme';
 import './Rail.css';
 
@@ -115,6 +116,11 @@ export function Rail({
             )}
             <span className="rail-label">{theme === 'light' ? 'Dark' : 'Light'}</span>
           </button>
+
+          {/* User Button */}
+          <div className="rail-btn" style={{ padding: '8px' }}>
+            <UserButton afterSignOutUrl="/" appearance={{ elements: { rootBox: { margin: '0 auto' } } }} />
+          </div>
         </div>
       </nav>
 
@@ -144,6 +150,9 @@ export function Rail({
             </svg>
           )}
         </button>
+        <div className="rail-btn" style={{ padding: '8px' }}>
+          <UserButton afterSignOutUrl="/" />
+        </div>
       </nav>
     </>
   );
