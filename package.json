@@ -1,0 +1,27 @@
+{
+  "name": "chalk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RAG-powered study assistant grounded in your professor's notes",
+  "workspaces": [
+    "packages/shared",
+    "packages/backend",
+    "packages/worker",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:backend": "npm run dev -w packages/backend",
+    "dev:worker": "npm run dev -w packages/worker",
+    "dev:frontend": "npm run dev -w packages/frontend",
+    "build": "npm run build --workspaces --if-present",
+    "build:shared": "npm run build -w packages/shared",
+    "db:migrate": "npm run db:migrate -w packages/shared",
+    "db:generate": "npm run db:generate -w packages/shared",
+    "typecheck": "tsc --noEmit --workspaces",
+    "clean": "rimraf packages/*/dist"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
