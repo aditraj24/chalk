@@ -1,0 +1,86 @@
+.home-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 100dvh;
+  padding: 48px 24px;
+}
+
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 480px;
+  gap: 12px;
+}
+
+.home-logo {
+  margin-bottom: 8px;
+}
+
+.home-logo-icon {
+  font-size: 3.5rem;
+}
+
+.home-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.home-subtitle {
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.home-desc {
+  max-width: 380px;
+  line-height: 1.6;
+}
+
+.home-cta {
+  margin-top: 12px;
+  padding: 14px 32px !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+}
+
+/* ─── Recent Chats ──────────────────────────────────── */
+.home-recent {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.home-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home-recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+  text-align: left;
+  width: 100%;
+}
+
+.home-recent-item:hover {
+  background-color: var(--bg-surface-raised);
+  border-color: var(--color-primary);
+}

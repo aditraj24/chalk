@@ -1,0 +1,157 @@
+/* ─── Command Surface ───────────────────────────────── */
+.command-surface {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 560px;
+  max-height: 70vh;
+  background-color: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── Search Header ─────────────────────────────────── */
+.command-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.command-search-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.command-input {
+  flex: 1;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.command-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.command-kbd {
+  padding: 2px 8px;
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+
+/* ─── Chat List ─────────────────────────────────────── */
+.command-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.command-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.command-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.command-item:hover,
+.command-item-selected {
+  background-color: var(--bg-surface);
+}
+
+.command-item-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.command-item-title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.command-item-meta {
+  flex-shrink: 0;
+}
+
+.command-item-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.command-item:hover .command-item-actions,
+.command-item-selected .command-item-actions {
+  opacity: 1;
+}
+
+.command-action-btn {
+  min-height: 30px !important;
+  min-width: 30px !important;
+  padding: 4px !important;
+}
+
+.command-action-delete:hover {
+  color: var(--error) !important;
+}
+
+.command-edit-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.9375rem;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Footer ────────────────────────────────────────── */
+.command-footer {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ─── Mobile Adjustments ────────────────────────────── */
+@media (max-width: 767px) {
+  .command-surface {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    max-height: 70vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: slideUp var(--transition-spring) forwards;
+  }
+}

@@ -1,0 +1,460 @@
+/* ──────────────────────────────────────────────────────
+   Chalk — CSS Design System
+   Based on chalk-ui.md design system spec
+   ────────────────────────────────────────────────────── */
+
+/* ─── Google Fonts Import ───────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ─── CSS Reset ─────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background-color: var(--bg-base);
+  min-height: 100dvh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+img, video, svg {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  background: none;
+}
+
+input, textarea {
+  font-family: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+/* ─── Theme Tokens: Light Mode (Default) ────────────── */
+:root {
+  --bg-base: #EDEAE4;
+  --bg-surface: #FAF9F6;
+  --bg-surface-raised: #FFFFFF;
+  --border-subtle: #C1BDB3;
+  --text-primary: #323031;
+  --text-secondary: #7F7979;
+  --color-primary: #5F5B6B;
+  --color-primary-hover: #4A4757;
+  --focus-mode: #7C8B6F;
+  --explore-mode: #6B7B8C;
+  --warning: #B08D57;
+  --error: #A65A4B;
+
+  /* Derived tokens */
+  --color-primary-rgb: 95, 91, 107;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Theme Tokens: Dark Mode ───────────────────────── */
+[data-theme="dark"] {
+  --bg-base: #323031;
+  --bg-surface: #3D3B3C;
+  --bg-surface-raised: #494647;
+  --border-subtle: #5F5B6B;
+  --text-primary: #C1BDB3;
+  --text-secondary: #7F7979;
+  --color-primary: #A39FB0;
+  --color-primary-hover: #8F8AA0;
+  --focus-mode: #9AAB8C;
+  --explore-mode: #8B9DAE;
+  --warning: #C9A876;
+  --error: #C17C6E;
+
+  --color-primary-rgb: 163, 159, 176;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Typography Scale ──────────────────────────────── */
+.text-xs { font-size: 0.75rem; font-weight: 400; }
+.text-sm { font-size: 0.875rem; font-weight: 400; }
+.text-base { font-size: 1rem; font-weight: 400; }
+.text-lg { font-size: 1.125rem; font-weight: 500; }
+.text-xl { font-size: 1.5rem; font-weight: 600; }
+.text-2xl { font-size: 2rem; font-weight: 700; }
+
+.font-heading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-body {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+/* ─── Button System ─────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  min-height: 44px;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Primary button */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Secondary button */
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1.5px solid var(--border-subtle);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: rgba(var(--color-primary-rgb), 0.08);
+  border-color: var(--color-primary);
+}
+
+/* Tertiary / Ghost button */
+.btn-ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  background-color: rgba(var(--color-primary-rgb), 0.06);
+}
+
+/* Destructive button */
+.btn-destructive {
+  background-color: var(--error);
+  color: #FFFFFF;
+}
+.btn-destructive:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* Icon button */
+.btn-icon {
+  padding: 8px;
+  min-height: 40px;
+  min-width: 40px;
+  border-radius: var(--radius-md);
+}
+
+/* ─── Input Styles ──────────────────────────────────── */
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* ─── Card / Surface ────────────────────────────────── */
+.surface {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+.surface-raised {
+  background-color: var(--bg-surface-raised);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* ─── Pill Segmented Control ────────────────────────── */
+.pill-group {
+  display: inline-flex;
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border-subtle);
+}
+
+.pill-option {
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.pill-option:hover {
+  color: var(--text-primary);
+}
+
+.pill-option.active {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+}
+
+.pill-option.active-focus {
+  background-color: var(--focus-mode);
+  color: #FFFFFF;
+}
+
+.pill-option.active-explore {
+  background-color: var(--explore-mode);
+  color: #FFFFFF;
+}
+
+/* ─── Citation Chip ─────────────────────────────────── */
+.citation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.citation-chip:hover {
+  opacity: 0.8;
+}
+
+.citation-chip-focus {
+  background-color: var(--focus-mode);
+  color: #FFFFFF;
+}
+
+.citation-chip-explore {
+  background-color: var(--explore-mode);
+  color: #FFFFFF;
+}
+
+/* ─── Badge ─────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-subtle);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-secondary);
+}
+
+/* ─── Animations & Motion ───────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in { animation: fadeIn var(--transition-base) ease forwards; }
+.animate-slide-up { animation: slideUp var(--transition-base) ease forwards; }
+.animate-slide-down { animation: slideDown var(--transition-base) ease forwards; }
+.animate-scale-in { animation: scaleIn 180ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.animate-pulse { animation: pulse 2s ease-in-out infinite; }
+
+/* ─── Backdrop ──────────────────────────────────────── */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  animation: fadeIn 150ms ease forwards;
+}
+
+/* ─── Reduced Motion ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Utility Classes ───────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Layout Helpers ────────────────────────────────── */
+.app-layout {
+  display: flex;
+  min-height: 100dvh;
+  position: relative;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  margin-left: 88px; /* Rail width (56px) + margin (16px * 2) */
+}
+
+@media (max-width: 1023px) {
+  .main-content {
+    margin-left: 72px; /* Tablet rail */
+  }
+}
+
+@media (max-width: 767px) {
+  .main-content {
+    margin-left: 0; /* Mobile: no rail, uses bottom dock */
+    padding-bottom: 80px; /* Space for bottom dock */
+  }
+}

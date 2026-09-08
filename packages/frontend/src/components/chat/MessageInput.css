@@ -1,0 +1,99 @@
+/* ─── Message Input Container ───────────────────────── */
+.message-input-container {
+  padding: 12px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-input-container.compress {
+  transform: scaleY(0.96);
+}
+
+/* ─── Document Badge ────────────────────────────────── */
+.doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 12px;
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.doc-badge:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* ─── Input Wrapper ─────────────────────────────────── */
+.message-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 8px 8px 8px 16px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.message-input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.12);
+}
+
+.message-textarea {
+  flex: 1;
+  resize: none;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  padding: 6px 0;
+  max-height: 200px;
+  min-height: 24px;
+}
+
+.message-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.message-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Send Button ───────────────────────────────────── */
+.send-btn {
+  padding: 8px 14px !important;
+  min-height: 38px !important;
+  border-radius: var(--radius-md) !important;
+  flex-shrink: 0;
+}
+
+.send-loading {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Responsive ────────────────────────────────────── */
+@media (max-width: 767px) {
+  .message-input-container {
+    padding: 8px 12px 12px;
+  }
+}

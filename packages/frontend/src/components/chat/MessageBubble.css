@@ -1,0 +1,132 @@
+/* ─── Message Layout ────────────────────────────────── */
+.message {
+  display: flex;
+  padding: 4px 0;
+}
+
+.message-user {
+  justify-content: flex-end;
+}
+
+.message-assistant {
+  justify-content: flex-start;
+}
+
+/* ─── Message Bubble ────────────────────────────────── */
+.message-bubble {
+  max-width: 85%;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.message-bubble-user {
+  background-color: var(--bg-surface-raised);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-bottom-right-radius: 4px;
+  max-width: 65%;
+}
+
+.message-bubble-assistant {
+  background-color: transparent;
+  color: var(--text-primary);
+  max-width: 90%;
+  padding-left: 4px;
+}
+
+/* ─── Message Content (Markdown) ────────────────────── */
+.message-content h1,
+.message-content h2,
+.message-content h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.message-content h1 { font-size: 1.25rem; font-weight: 600; }
+.message-content h2 { font-size: 1.125rem; font-weight: 600; }
+.message-content h3 { font-size: 1rem; font-weight: 600; }
+
+.message-content p {
+  margin-bottom: 10px;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content ul,
+.message-content ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.message-content ul { list-style: disc; }
+.message-content ol { list-style: decimal; }
+
+.message-content li {
+  margin-bottom: 4px;
+}
+
+.message-content strong {
+  font-weight: 600;
+}
+
+.message-content blockquote {
+  border-left: 3px solid var(--border-subtle);
+  padding-left: 14px;
+  margin: 12px 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* ─── Inline Code ───────────────────────────────────── */
+.inline-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875em;
+  padding: 2px 6px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--color-primary);
+}
+
+/* ─── Code Block ────────────────────────────────────── */
+.code-block {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  padding: 14px 18px;
+  margin: 12px 0;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+/* ─── Streaming Cursor ──────────────────────────────── */
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: var(--color-primary);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+/* ─── Responsive ────────────────────────────────────── */
+@media (max-width: 767px) {
+  .message-bubble-user {
+    max-width: 80%;
+  }
+
+  .message-bubble-assistant {
+    max-width: 95%;
+  }
+}
