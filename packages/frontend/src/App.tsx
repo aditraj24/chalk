@@ -5,11 +5,18 @@ import { HomePage } from './pages/HomePage';
 import { ChatPage } from './pages/ChatPage';
 import { useTheme } from './hooks/useTheme';
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-
-if (!CLERK_PUBLISHABLE_KEY) {
-  throw new Error("Missing Publishable Key");
+declare global {
+  interface Window {
+    __ENV__?: {
+      VITE_CLERK_PUBLISHABLE_KEY?: string;
+    };
+  }
 }
+
+const CLERK_PUBLISHABLE_KEY =
+  (typeof window !== 'undefined' && window.__ENV__?.VITE_CLERK_PUBLISHABLE_KEY) ||
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  'pk_test_ZHluYW1pYy1lYWdsZS0zODU5LmNsZXJrLmFjY291bnRzLmRldiQ';
 
 const queryClient = new QueryClient({
   defaultOptions: {

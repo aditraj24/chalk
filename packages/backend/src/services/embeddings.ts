@@ -8,12 +8,25 @@ import { EMBEDDING_DIMENSION } from '@chalk/shared';
  * First call will take a few seconds to download and load the model.
  */
 
+import { createRequire } from 'module';
+
 // Dynamic import for @xenova/transformers (ESM-only)
 let pipeline: any = null;
 let extractor: any = null;
 
 async function getExtractor() {
   if (extractor) return extractor;
+
+  try {
+    const require = createRequire(import.meta.url);
+    const sharpResolved = require.resolve('sharp');
+    require.cache[sharpResolved] = {
+      id: sharpResolved,
+      filename: sharpResolved,
+      loaded: true,
+      exports: () => ({}),
+    } as any;
+  } catch {}
 
   // Dynamically import to avoid top-level await issues
   const { pipeline: transformersPipeline } = await import('@xenova/transformers');
@@ -54,18 +67,33 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
 
 // ─── Reranker (Cross-Encoder) ──────────────────────────
 
+// Official Xenova BGE Reranker (public, ONNX-optimized, no auth token required)
+const PRIMARY_RERANKER = 'Xenova/bge-reranker-base';
+const FALLBACK_RERANKER = 'Xenova/ms-marco-MiniLM-L-6-v2';
+
 let reranker: any = null;
 
 async function getReranker() {
   if (reranker) return reranker;
 
   const { pipeline: transformersPipeline } = await import('@xenova/transformers');
-  // Cross-encoders use the text-classification pipeline
-  reranker = await transformersPipeline('text-classification', 'Xenova/bge-reranker-v2-m3', {
-    quantized: true,
-  });
 
-  console.log('[Embeddings] BGE-Reranker-v2-M3 model loaded');
+  const modelId = process.env.RERANKER_MODEL || PRIMARY_RERANKER;
+
+  try {
+    // Cross-encoders use the text-classification pipeline
+    reranker = await transformersPipeline('text-classification', modelId, {
+      quantized: true,
+    });
+    console.log(`[Embeddings] Reranker loaded: ${modelId}`);
+  } catch (err) {
+    console.warn(`[Embeddings] Failed to load ${modelId}, trying fallback ${FALLBACK_RERANKER}:`, err);
+    reranker = await transformersPipeline('text-classification', FALLBACK_RERANKER, {
+      quantized: true,
+    });
+    console.log(`[Embeddings] Reranker loaded (fallback): ${FALLBACK_RERANKER}`);
+  }
+
   return reranker;
 }
 

@@ -1,6 +1,29 @@
-version: '3.8'
-
 services:
+  # ─── Chalk Application (Backend + Worker + Frontend) ──
+  chalk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chalk-app
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://chalk:chalk_dev_password@postgres:5432/chalk
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: http://localhost:3001
+    volumes:
+      - chalk_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── PostgreSQL with pgvector ─────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
     container_name: chalk-postgres
@@ -19,6 +42,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── Redis ────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: chalk-redis
@@ -36,3 +60,4 @@ services:
 volumes:
   chalk_pgdata:
   chalk_redis_data:
+  chalk_uploads:

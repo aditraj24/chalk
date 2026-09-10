@@ -13,7 +13,7 @@
     "./constants": "./dist/constants.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs = require('fs'); const src = 'src/db/migrations'; const dst = 'dist/db/migrations'; if (fs.existsSync(src)) { fs.mkdirSync('dist/db', {recursive: true}); fs.cpSync(src, dst, {recursive: true}); }\"",
     "dev": "tsc --watch",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -21,12 +21,12 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.39.0",
     "pg": "^8.13.0"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0",
-    "drizzle-kit": "^0.30.0",
     "typescript": "^5.7.0"
   }
 }

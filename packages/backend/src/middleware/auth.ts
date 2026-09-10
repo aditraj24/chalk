@@ -40,9 +40,15 @@ export async function requireAuth(
 
     if (!user) {
       // Auto-create user record on first API call after Clerk signup
-      const email = (auth as Record<string, unknown>).sessionClaims
-        ? ((auth as Record<string, unknown>).sessionClaims as Record<string, unknown>).email as string
-        : `${clerkId}@clerk.user`;
+      const sessionClaims = (auth as Record<string, unknown>).sessionClaims as Record<string, unknown> | undefined;
+      let email =
+        (typeof sessionClaims?.email === 'string' && sessionClaims.email.trim()) ||
+        (typeof sessionClaims?.primary_email_address === 'string' && sessionClaims.primary_email_address.trim()) ||
+        null;
+
+      if (!email) {
+        email = `${clerkId}@clerk.user`;
+      }
 
       [user] = await db
         .insert(users)
@@ -55,6 +61,7 @@ export async function requireAuth(
     next();
   } catch (error) {
     console.error('[Auth] Error:', error);
-    res.status(500).json({ error: 'Authentication error' });
+    const message = error instanceof Error ? error.message : 'Authentication error';
+    res.status(500).json({ error: message });
   }
 }

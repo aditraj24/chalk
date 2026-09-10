@@ -11,9 +11,11 @@ export function getLlm(streaming = true) {
     throw new Error('GROQ_API_KEY environment variable is not set');
   }
 
+  const model = process.env.GROQ_MODEL || process.env.LLM_MODEL || LLM_MODEL;
+
   return new ChatGroq({
     apiKey,
-    model: LLM_MODEL,
+    model,
     temperature: LLM_TEMPERATURE,
     maxTokens: LLM_MAX_TOKENS,
     streaming,

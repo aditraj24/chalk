@@ -12,11 +12,23 @@ import fs from 'fs/promises';
 import path from 'path';
 import officeParser from 'officeparser';
 
+import { createRequire } from 'module';
+
 // ─── Embedding (local BGE-M3 via ONNX) ────────────────
 let extractor: any = null;
 
 async function getExtractor() {
   if (extractor) return extractor;
+  try {
+    const require = createRequire(import.meta.url);
+    const sharpResolved = require.resolve('sharp');
+    require.cache[sharpResolved] = {
+      id: sharpResolved,
+      filename: sharpResolved,
+      loaded: true,
+      exports: () => ({}),
+    } as any;
+  } catch {}
   const { pipeline } = await import('@xenova/transformers');
   extractor = await pipeline('feature-extraction', 'Xenova/bge-m3', {
     quantized: true,

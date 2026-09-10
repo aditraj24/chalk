@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output (will be rebuilt inside Docker)
+dist/
+*.tsbuildinfo
+
+# Environment (users provide their own)
+.env
+.env.local
+.env.*.local
+
+# Local PDF storage
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.agents/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Vite cache
+packages/frontend/.vite/
+
+# Documentation (not needed in image)
+*.md
+!packages/shared/src/db/migrations/*.sql
+
+# Docker (avoid recursive copy)
+docker-compose.yml
+Dockerfile

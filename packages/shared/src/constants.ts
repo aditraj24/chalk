@@ -45,7 +45,7 @@ export const RRF_K = 60;
 // ─── LLM ───────────────────────────────────────────────
 
 /** Groq model identifier */
-export const LLM_MODEL = 'llama-3.3-70b-versatile';
+export const LLM_MODEL = 'openai/gpt-oss-120b';
 
 /** Max tokens for LLM response generation */
 export const LLM_MAX_TOKENS = 2048;
@@ -56,7 +56,7 @@ export const LLM_TEMPERATURE = 0.3;
 // ─── Ingestion Queue ───────────────────────────────────
 
 /** BullMQ queue name for document ingestion */
-export const INGESTION_QUEUE_NAME = 'chalk:ingestion';
+export const INGESTION_QUEUE_NAME = 'chalk-ingestion';
 
 // ─── Explore Mode ──────────────────────────────────────
 

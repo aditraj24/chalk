@@ -16,7 +16,16 @@ export function getPool(): pg.Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is not set');
     }
-    pool = new Pool({ connectionString });
+    pool = new Pool({
+      connectionString,
+      connectionTimeoutMillis: 30000,
+      idleTimeoutMillis: 30000,
+      keepAlive: true,
+      max: 10,
+    });
+    pool.on('error', (err) => {
+      console.warn('[DB Pool] Warning on idle client:', err.message);
+    });
   }
   return pool;
 }
@@ -31,7 +40,16 @@ export function getReadPool(): pg.Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is not set');
     }
-    readPool = new Pool({ connectionString });
+    readPool = new Pool({
+      connectionString,
+      connectionTimeoutMillis: 30000,
+      idleTimeoutMillis: 30000,
+      keepAlive: true,
+      max: 10,
+    });
+    readPool.on('error', (err) => {
+      console.warn('[DB ReadPool] Warning on idle client:', err.message);
+    });
   }
   return readPool;
 }

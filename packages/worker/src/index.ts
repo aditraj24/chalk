@@ -1,4 +1,20 @@
 import 'dotenv/config';
+import { createRequire } from 'module';
+
+// Polyfill sharp in require.cache to avoid native compilation errors when running headless in Docker
+try {
+  const require = createRequire(import.meta.url);
+  const sharpResolved = require.resolve('sharp');
+  require.cache[sharpResolved] = {
+    id: sharpResolved,
+    filename: sharpResolved,
+    loaded: true,
+    exports: () => ({}),
+  } as any;
+} catch {
+  // Ignored if sharp is not resolvable
+}
+
 import { Worker } from 'bullmq';
 import { INGESTION_QUEUE_NAME } from '@chalk/shared';
 import type { IngestionJob } from '@chalk/shared';
