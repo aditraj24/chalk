@@ -3,7 +3,6 @@
 > **Chalk** is an intelligent, RAG-powered study assistant designed specifically for students and researchers. Every chat session is scoped to your uploaded course materials (lecture notes, slides, and reference books). Answers are strictly grounded in your materials with exact citations, eliminating hallucinations unless you explicitly switch to **Explore** mode.
 
 [![Docker Image](https://img.shields.io/badge/Docker%20Hub-r0bince%2Fchalk%3Alatest-blue?logo=docker)](https://hub.docker.com/r/r0bince/chalk)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
 
@@ -218,7 +217,4 @@ docker restart chalk
 docker rm -f chalk
 ```
 
----
 
-## 📄 License
-This project is licensed under the [MIT License](LICENSE).
