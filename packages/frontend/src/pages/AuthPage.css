@@ -1,0 +1,88 @@
+/* ─── In-App Auth Page ────────────────────────────────── */
+
+.auth-page-container {
+  display: flex;
+  min-height: 100dvh;
+  width: 100vw;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-base);
+  padding: 24px 16px;
+}
+
+.auth-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 440px;
+}
+
+.auth-brand-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-logo-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-xl, 14px);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.auth-subtitle {
+  color: var(--text-secondary);
+  max-width: 300px;
+  line-height: 1.4;
+}
+
+.auth-clerk-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* ─── Hide Clerk Development Mode Badges & Ribbons ────── */
+
+.cl-internal-ph3hsk,
+.cl-development-mode,
+.cl-developmentBadge,
+.cl-dev-badge,
+[data-localization-key*="developmentMode"],
+[data-localization-key*="DevelopmentMode"],
+.cl-footerAction__development,
+.cl-headerSubtitle__development,
+.cl-badge[data-color="warning"],
+.cl-developmentModeBadge,
+div[class*="developmentMode"],
+div[class*="DevelopmentMode"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide Clerk watermarks if present */
+.cl-footerAction__development,
+.cl-internal-b3fm6y {
+  display: none !important;
+}

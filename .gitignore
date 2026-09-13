@@ -10,6 +10,9 @@ dist/
 .env.local
 .env.*.local
 
+Chalk-Architecture-Document.md
+chalk-ui.md
+
 # Local PDF storage (dev)
 uploads/
 

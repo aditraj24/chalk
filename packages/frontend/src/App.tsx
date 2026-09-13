@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
+import { ClerkProvider, SignedIn, SignedOut } from '@clerk/clerk-react';
 import { HomePage } from './pages/HomePage';
 import { ChatPage } from './pages/ChatPage';
+import { AuthPage } from './pages/AuthPage';
 import { useTheme } from './hooks/useTheme';
 
 declare global {
@@ -21,7 +22,7 @@ const CLERK_PUBLISHABLE_KEY =
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,       // 30 seconds
+      staleTime: 30_000, // 30 seconds
       refetchOnWindowFocus: false,
       retry: 2,
     },
@@ -31,9 +32,6 @@ const queryClient = new QueryClient({
 /**
  * Root App component.
  * Sets up: TanStack Query, React Router, theme initialization.
- *
- * NOTE: Clerk auth is commented out for MVP local development.
- * Uncomment and wrap with <ClerkProvider> when Clerk keys are configured.
  */
 function AppContent() {
   // Initialize theme on mount
@@ -49,7 +47,7 @@ function AppContent() {
               <HomePage />
             </SignedIn>
             <SignedOut>
-              <RedirectToSignIn />
+              <AuthPage />
             </SignedOut>
           </>
         }
@@ -62,7 +60,7 @@ function AppContent() {
               <ChatPage />
             </SignedIn>
             <SignedOut>
-              <RedirectToSignIn />
+              <AuthPage />
             </SignedOut>
           </>
         }
@@ -73,7 +71,14 @@ function AppContent() {
 
 function AppRoutes() {
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider
+      publishableKey={CLERK_PUBLISHABLE_KEY}
+      appearance={{
+        layout: {
+          unsafe_disableDevelopmentModeWarnings: true,
+        },
+      }}
+    >
       <QueryClientProvider client={queryClient}>
         <AppContent />
       </QueryClientProvider>

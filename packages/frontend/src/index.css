@@ -479,3 +479,24 @@ ul, ol {
     padding-top: 52px;
   }
 }
+
+/* ─── Clerk Component Global Overrides ────────────────── */
+.cl-internal-ph3hsk,
+.cl-development-mode,
+.cl-developmentBadge,
+.cl-dev-badge,
+[data-localization-key*="developmentMode"],
+[data-localization-key*="DevelopmentMode"],
+.cl-footerAction__development,
+.cl-headerSubtitle__development,
+.cl-badge[data-color="warning"],
+.cl-developmentModeBadge,
+div[class*="developmentMode"],
+div[class*="DevelopmentMode"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
