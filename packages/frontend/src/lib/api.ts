@@ -54,8 +54,9 @@ export interface Chat {
   id: string;
   userId: string;
   title: string;
-  mode: 'focus' | 'explore';
+  mode: 'focus' | 'agent' | 'explore';
   perfMode: 'speed' | 'balanced' | 'accuracy';
+  autoSearch: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -64,13 +65,13 @@ export interface Chat {
 export const chatApi = {
   list: () => apiFetch<{ chats: Chat[] }>('/chats'),
 
-  create: (data: { title: string; mode?: string; perfMode?: string }) =>
+  create: (data: { title: string; mode?: string; perfMode?: string; autoSearch?: boolean }) =>
     apiFetch<{ chat: Chat }>('/chats', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  update: (chatId: string, data: { title?: string; mode?: string; perfMode?: string }) =>
+  update: (chatId: string, data: { title?: string; mode?: string; perfMode?: string; autoSearch?: boolean }) =>
     apiFetch<{ chat: Chat }>(`/chats/${chatId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -184,7 +185,7 @@ export interface Message {
 }
 
 export interface StreamEvent {
-  type: 'token' | 'citations' | 'done' | 'error';
+  type: 'token' | 'citations' | 'done' | 'error' | 'search_confirmation';
   content?: string;
   citations?: Array<{
     chunkId: string;
@@ -193,6 +194,9 @@ export interface StreamEvent {
     label: string;
   }>;
   error?: string;
+  reason?: string;
+  originalQuery?: string;
+  rewrittenQuery?: string | null;
 }
 
 export const messageApi = {
@@ -229,6 +233,64 @@ export const messageApi = {
       },
       credentials: 'include',
       body: JSON.stringify({ content }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const event: StreamEvent = JSON.parse(line.slice(6));
+            yield event;
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
+    }
+  },
+
+  /**
+   * Resume an interrupted search confirmation and stream the resumed response via SSE.
+   */
+  resume: async function* (chatId: string, confirmed: boolean): AsyncGenerator<StreamEvent> {
+    const url = `${API_BASE}/chats/${chatId}/messages/resume`;
+
+    let token: string | null = null;
+    try {
+      // @ts-expect-error Clerk global
+      const clerk = window.Clerk;
+      if (clerk?.session) {
+        token = await clerk.session.getToken();
+      }
+    } catch {
+      // No Clerk session
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ confirmed }),
     });
 
     if (!response.ok) {

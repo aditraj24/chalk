@@ -66,7 +66,7 @@ function processCitations(
   const text = typeof children === 'string' ? children : '';
   if (!text) return children;
 
-  const citationRegex = /\[Doc:\s*([^,\]]+),\s*(p\.\d+)\]/g;
+  const citationRegex = /\[(Doc|Web):\s*([^,\]]+)(?:,\s*(p\.\d+|unknown page))?\]/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match;
@@ -77,11 +77,17 @@ function processCitations(
       parts.push(text.slice(lastIndex, match.index));
     }
 
+    const isWeb = match[1] === 'Web';
+    const docName = match[2].trim();
+    const page = match[3];
+
     // Add citation chip
-    const chipClass = mode === 'explore' ? 'citation-chip-explore' : 'citation-chip-focus';
+    const isAgentMode = mode === 'agent' || mode === 'explore';
+    const chipClass = isWeb || isAgentMode ? 'citation-chip-agent' : 'citation-chip-focus';
+
     parts.push(
       <span key={match.index} className={`citation-chip ${chipClass}`}>
-        📄 {match[1].trim()}, {match[2]}
+        {isWeb ? '🌐' : '📄'} {docName}{page ? `, ${page}` : ''}
       </span>,
     );
 

@@ -39,7 +39,7 @@ chatRoutes.get('/', async (req: AuthenticatedRequest, res: Response) => {
  */
 chatRoutes.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { title, mode, perfMode } = req.body as CreateChatRequest;
+    const { title, mode, perfMode, autoSearch } = req.body as CreateChatRequest;
 
     if (!title || title.trim().length === 0) {
       res.status(400).json({ error: 'Title is required' });
@@ -47,13 +47,16 @@ chatRoutes.post('/', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const db = getDb();
+    const resolvedMode = mode === ('explore' as any) ? 'agent' : (mode || 'focus');
+
     const [chat] = await db
       .insert(chats)
       .values({
         userId: req.userId!,
         title: title.trim(),
-        mode: mode || 'focus',
+        mode: resolvedMode,
         perfMode: perfMode || 'balanced',
+        autoSearch: autoSearch !== undefined ? Boolean(autoSearch) : true,
       })
       .returning();
 
@@ -65,22 +68,23 @@ chatRoutes.post('/', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * PATCH /api/chats/:chatId — Update chat (rename, change mode/perfMode)
+ * PATCH /api/chats/:chatId — Update chat (rename, change mode/perfMode/autoSearch)
  */
 chatRoutes.patch(
   '/:chatId',
   requireChatOwnership,
   async (req: ChatScopedRequest, res: Response) => {
     try {
-      const { title, mode, perfMode } = req.body as UpdateChatRequest;
+      const { title, mode, perfMode, autoSearch } = req.body as UpdateChatRequest;
       const db = getDb();
 
       const updateData: Record<string, unknown> = {
         updatedAt: new Date(),
       };
       if (title !== undefined) updateData.title = title.trim();
-      if (mode !== undefined) updateData.mode = mode;
+      if (mode !== undefined) updateData.mode = mode === ('explore' as any) ? 'agent' : mode;
       if (perfMode !== undefined) updateData.perfMode = perfMode;
+      if (autoSearch !== undefined) updateData.autoSearch = Boolean(autoSearch);
 
       const [updated] = await db
         .update(chats)

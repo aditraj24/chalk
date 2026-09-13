@@ -1,20 +1,21 @@
 # Chalk — Project Rules
 
 ## Project Overview
-Chalk is a RAG-powered study assistant where every chat session is scoped to a specific set of ingested documents (professor's notes + reference books). Answers are strictly grounded in that material unless the student explicitly opts into Explore mode.
+Chalk is a RAG-powered study assistant where every chat session is scoped to a specific set of ingested documents (professor's notes + reference books). Answers are strictly grounded in that material unless the student explicitly opts into Agent mode.
 
 ## Tech Stack (Enforced)
 - **Frontend**: React.js (Vite), TanStack Query, WebSocket/SSE for streaming
 - **Backend**: Node.js (Express or Fastify)
 - **Orchestration**: LangChain.js + LangGraph.js (explicit state machine per chat turn)
-- **LLM**: Anthropic Claude (generation), swappable via LangChain interface
+- **LLM**: Anthropic Claude / Groq Llama 3.3 (generation), swappable via LangChain interface
+- **Grader LLM**: Groq Llama 3.1 8B Instant (free tier, deterministic evaluation)
 - **Embeddings**: Voyage AI (or OpenAI `text-embedding-3` as fallback)
 - **Database**: PostgreSQL with pgvector (HNSW) for dense retrieval, tsvector/BM25 for sparse retrieval
 - **Object Storage**: AWS S3
 - **Job Queue**: BullMQ + Redis
 - **Auth**: Auth.js / Clerk / Supabase Auth (no hand-rolled auth)
 - **Observability**: OpenTelemetry + LangSmith
-- **Web Search (Explore mode)**: Tavily API
+- **Web Search (Agent mode)**: Tavily API
 
 ## Architectural Constraints
 - Chat isolation: all retrieval queries MUST filter `WHERE chat_id = :chat_id`. Never allow cross-chat data leakage.

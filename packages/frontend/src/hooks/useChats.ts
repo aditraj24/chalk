@@ -22,8 +22,16 @@ export function useCreateChat() {
 export function useUpdateChat() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ chatId, ...data }: { chatId: string; title?: string; mode?: string; perfMode?: string }) =>
-      chatApi.update(chatId, data),
+    mutationFn: ({
+      chatId,
+      ...data
+    }: {
+      chatId: string;
+      title?: string;
+      mode?: string;
+      perfMode?: string;
+      autoSearch?: boolean;
+    }) => chatApi.update(chatId, data),
     onMutate: async ({ chatId, ...data }) => {
       // Cancel outgoing refetches so they don't overwrite optimistic update
       await queryClient.cancelQueries({ queryKey: ['chats'] });
@@ -40,10 +48,13 @@ export function useUpdateChat() {
               ? {
                   ...chat,
                   ...(data.title !== undefined ? { title: data.title } : {}),
-                  ...(data.mode !== undefined ? { mode: data.mode as 'focus' | 'explore' } : {}),
+                  ...(data.mode !== undefined
+                    ? { mode: (data.mode === 'explore' ? 'agent' : data.mode) as 'focus' | 'agent' }
+                    : {}),
                   ...(data.perfMode !== undefined
                     ? { perfMode: data.perfMode as 'speed' | 'balanced' | 'accuracy' }
                     : {}),
+                  ...(data.autoSearch !== undefined ? { autoSearch: data.autoSearch } : {}),
                   updatedAt: new Date().toISOString(),
                 }
               : chat,

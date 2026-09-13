@@ -20,14 +20,15 @@ Chalk uses a floating, detached dock + keyboard-first command surface instead of
 - Icons magnify slightly on hover (dock-style proximity, ~1.15x, spring easing) with label pill sliding out
 - **No permanent chat list panel** — clicking Chats or `⌘K`/`Ctrl+K` opens a centered floating command surface with fuzzy search, inline rename/delete, keyboard navigation
 - **No heavy top bar** — mode controls float as pill-shaped segmented controls centered at top of message thread
-  - Focus / Explore pill
+  - Focus / Agent pill
+  - Auto-search toggle (visible when Agent mode is active: ON/OFF)
   - Speed / Balanced / Accuracy pill
   - Chat title to the left, click-to-rename inline
 - Document count/ingestion status: small badge on input box at bottom
 
 ### Tablet (768–1023px)
 - Rail shrinks to ~48px, reduces margin
-- Mode pills shrink to abbreviations ("F / E", "S / B / A")
+- Mode pills shrink to abbreviations ("F / A", "S / B / A")
 
 ### Mobile (<768px)
 - Rail replaced by **floating bottom dock** — horizontal pill, bottom-center, ~16px above input
@@ -118,7 +119,8 @@ Dark mode renders **Chalk on Charcoal** — chalk-on-blackboard, literally on-br
 | `--color-primary` | `#5F5B6B` | Buttons, links, active states |
 | `--color-primary-hover` | `#4A4757` | Primary hover/active |
 | `--focus-mode` | `#7C8B6F` | Focus indicator, grounded-citation chips (muted sage) |
-| `--explore-mode` | `#6B7B8C` | Explore indicator, web-sourced chips (dusty blue) |
+| `--agent-mode` | `#6B7B8C` | Agent indicator, web-sourced chips (dusty blue) |
+| `--explore-mode` | `#6B7B8C` | Backward-compatible alias for `--agent-mode` |
 | `--warning` | `#B08D57` | Low-confidence banners (muted ochre) |
 | `--error` | `#A65A4B` | Destructive actions (muted brick) |
 
@@ -135,7 +137,8 @@ Dark mode renders **Chalk on Charcoal** — chalk-on-blackboard, literally on-br
 | `--color-primary` | `#A39FB0` | Buttons, links |
 | `--color-primary-hover` | `#8F8AA0` | Primary hover/active |
 | `--focus-mode` | `#9AAB8C` | Focus indicator |
-| `--explore-mode` | `#8B9DAE` | Explore indicator |
+| `--agent-mode` | `#8B9DAE` | Agent indicator |
+| `--explore-mode` | `#8B9DAE` | Backward-compatible alias for `--agent-mode` |
 | `--warning` | `#C9A876` | Low-confidence banners |
 | `--error` | `#C17C6E` | Destructive actions |
 
@@ -152,7 +155,8 @@ Dark mode renders **Chalk on Charcoal** — chalk-on-blackboard, literally on-br
   --color-primary: #5F5B6B;
   --color-primary-hover: #4A4757;
   --focus-mode: #7C8B6F;
-  --explore-mode: #6B7B8C;
+  --agent-mode: #6B7B8C;
+  --explore-mode: var(--agent-mode);
   --warning: #B08D57;
   --error: #A65A4B;
 }
@@ -167,7 +171,8 @@ Dark mode renders **Chalk on Charcoal** — chalk-on-blackboard, literally on-br
   --color-primary: #A39FB0;
   --color-primary-hover: #8F8AA0;
   --focus-mode: #9AAB8C;
-  --explore-mode: #8B9DAE;
+  --agent-mode: #8B9DAE;
+  --explore-mode: var(--agent-mode);
   --warning: #C9A876;
   --error: #C17C6E;
 }
@@ -180,7 +185,8 @@ Toggle via `data-theme="dark"` on `<html>`. Persist in `localStorage`, initializ
 ## Chat-Specific UI Patterns
 
 - **Message bubbles**: User messages right-aligned on `bg-surface-raised`. Assistant messages left-aligned, full/near-full width (not bubble-constrained — study answers are long)
-- **Citation chips**: Inline pill-shaped `[Doc: Chapter 4 Notes, p.12]` using `--focus-mode` green in Focus, `--explore-mode` blue for web-sourced in Explore
+- **Citation chips**: Inline pill-shaped `[Doc: Chapter 4 Notes, p.12]` using `--focus-mode` green in Focus, `--agent-mode` blue for web-sourced in Agent (`[Web: domain.org]`)
+- **Search Confirmation**: Inline card in Agent mode when auto-search is off and notes are insufficient. Explains why notes are incomplete, previews rewritten search query, and offers "Yes, Search Web" or "Answer from Notes Only" buttons.
 - **"Not in your notes"**: Calm bordered callout with `text-secondary` + `border-subtle` outline — honest answer, not an error
 - **Ingestion panel**: Per-document row: filename, page count, 4-stage progress (Uploading → Extracting → Chunking → Embedding), green checkmark on completion
 - **Empty state**: "Ingest your notes to start studying" with ingest button as the single primary action

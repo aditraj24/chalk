@@ -58,16 +58,33 @@ export const LLM_TEMPERATURE = 0.3;
 /** BullMQ queue name for document ingestion */
 export const INGESTION_QUEUE_NAME = 'chalk-ingestion';
 
-// ─── Explore Mode ──────────────────────────────────────
+// ─── Agent Mode (formerly Explore) ─────────────────────
 
-/** Allowed domains for Tavily web search in Explore mode */
-export const EXPLORE_ALLOWED_DOMAINS = [
+/** Allowed domains for Tavily web search in Agent mode */
+export const AGENT_ALLOWED_DOMAINS = [
   'ncert.nic.in',
   'openstax.org',
   'khanacademy.org',
   'wikipedia.org',
   'en.wikipedia.org',
 ] as const;
+
+/** @deprecated Use AGENT_ALLOWED_DOMAINS instead */
+export const EXPLORE_ALLOWED_DOMAINS = AGENT_ALLOWED_DOMAINS;
+
+// ─── Grading (retrieve_and_grade subgraph) ─────────────
+
+/** Max retrieval retries in the retrieve_and_grade subgraph */
+export const MAX_GRADE_RETRIES = 1;
+
+/** Grader model identifier (small/fast via Groq — free tier) */
+export const GRADER_MODEL = 'llama-3.1-8b-instant';
+
+/** Temperature for grading LLM calls (deterministic) */
+export const GRADER_TEMPERATURE = 0;
+
+/** Max tokens for grading response */
+export const GRADER_MAX_TOKENS = 256;
 
 // ─── Upload Limits ─────────────────────────────────────
 

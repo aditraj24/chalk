@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import { getDb, getReadDb, messages, chats } from '@chalk/shared';
-import type { SendMessageRequest } from '@chalk/shared';
+import type { SendMessageRequest, ResumeSearchRequest } from '@chalk/shared';
 import { eq, asc, desc, and, lt } from 'drizzle-orm';
 import { requireAuth } from '../middleware/auth.js';
 import { requireChatOwnership, ChatScopedRequest } from '../middleware/chatOwnership.js';
-import { ragPipeline } from '../services/rag.js';
+import { ragPipeline, resumeRagPipeline } from '../services/rag.js';
 
 export const messageRoutes = Router();
 
@@ -73,7 +73,12 @@ messageRoutes.post(
 
       // Fetch the chat's current mode configuration and title
       const [chatRecord] = await db
-        .select({ title: chats.title, mode: chats.mode, perfMode: chats.perfMode })
+        .select({
+          title: chats.title,
+          mode: chats.mode,
+          perfMode: chats.perfMode,
+          autoSearch: chats.autoSearch,
+        })
         .from(chats)
         .where(eq(chats.id, req.chatId!))
         .limit(1);
@@ -100,14 +105,13 @@ messageRoutes.post(
       }
 
       // Persist the user message
-      const [userMessage] = await db
+      await db
         .insert(messages)
         .values({
           chatId: req.chatId!,
           role: 'user',
           content: content.trim(),
-        })
-        .returning();
+        });
 
       // Set up SSE headers for streaming
       res.setHeader('Content-Type', 'text/event-stream');
@@ -120,13 +124,19 @@ messageRoutes.post(
       await ragPipeline({
         chatId: req.chatId!,
         query: content.trim(),
-        mode: chatRecord.mode as 'focus' | 'explore',
+        mode: chatRecord.mode as 'focus' | 'agent' | 'explore',
         perfMode: chatRecord.perfMode as 'speed' | 'balanced' | 'accuracy',
+        autoSearch: chatRecord.autoSearch ?? true,
         onToken: (token: string) => {
           res.write(`data: ${JSON.stringify({ type: 'token', content: token })}\n\n`);
         },
         onCitations: (citations) => {
           res.write(`data: ${JSON.stringify({ type: 'citations', citations })}\n\n`);
+        },
+        onInterrupt: (payload) => {
+          // Interrupt reached: notify frontend of confirmation prompt and finish SSE stream
+          res.write(`data: ${JSON.stringify(payload)}\n\n`);
+          res.end();
         },
         onComplete: (fullContent: string, chunkIds: string[]) => {
           // Persist the assistant message
@@ -155,7 +165,6 @@ messageRoutes.post(
       });
     } catch (error) {
       console.error('[Messages] Send error:', error);
-      // If headers haven't been sent yet
       if (!res.headersSent) {
         res.status(500).json({ error: 'Failed to process message' });
       } else {
@@ -165,3 +174,78 @@ messageRoutes.post(
     }
   },
 );
+
+/**
+ * POST /api/chats/:chatId/messages/resume — Resume interrupted search after student confirms or declines
+ */
+messageRoutes.post(
+  '/:chatId/messages/resume',
+  requireChatOwnership,
+  async (req: ChatScopedRequest, res: Response) => {
+    try {
+      const { confirmed } = req.body as ResumeSearchRequest;
+
+      const db = getDb();
+      const [chatRecord] = await db
+        .select({ mode: chats.mode })
+        .from(chats)
+        .where(eq(chats.id, req.chatId!))
+        .limit(1);
+
+      if (!chatRecord) {
+        res.status(404).json({ error: 'Chat not found' });
+        return;
+      }
+
+      // Set up SSE headers for streaming resumed generation
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
+
+      await resumeRagPipeline({
+        chatId: req.chatId!,
+        confirmed: Boolean(confirmed),
+        onToken: (token: string) => {
+          res.write(`data: ${JSON.stringify({ type: 'token', content: token })}\n\n`);
+        },
+        onCitations: (citations) => {
+          res.write(`data: ${JSON.stringify({ type: 'citations', citations })}\n\n`);
+        },
+        onComplete: (fullContent: string, chunkIds: string[]) => {
+          db.insert(messages)
+            .values({
+              chatId: req.chatId!,
+              role: 'assistant',
+              content: fullContent,
+              modeUsed: chatRecord.mode || 'agent',
+              retrievedChunkIds: JSON.stringify(chunkIds),
+            })
+            .then(() => {
+              res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+              res.end();
+            })
+            .catch((err: unknown) => {
+              console.error('[Messages] Persist error on resume:', err);
+              res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to save response' })}\n\n`);
+              res.end();
+            });
+        },
+        onError: (error: string) => {
+          res.write(`data: ${JSON.stringify({ type: 'error', error })}\n\n`);
+          res.end();
+        },
+      });
+    } catch (error) {
+      console.error('[Messages] Resume error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to resume search' });
+      } else {
+        res.write(`data: ${JSON.stringify({ type: 'error', error: 'Internal server error' })}\n\n`);
+        res.end();
+      }
+    }
+  },
+);
+

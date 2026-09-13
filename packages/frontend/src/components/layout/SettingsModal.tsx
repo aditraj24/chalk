@@ -107,6 +107,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
               <span className="settings-badge text-xs">Dense + Sparse</span>
             </div>
+            <div className="settings-row">
+              <div className="settings-row-text">
+                <span className="settings-label text-sm">Self-Correcting Retrieval</span>
+                <span className="settings-subtext text-xs text-secondary">
+                  Fast LLM grading loop verifies note sufficiency and rewrites queries before triggering Agent web search.
+                </span>
+              </div>
+              <span className="settings-badge text-xs">Retrieve & Grade</span>
+            </div>
           </div>
 
           {/* Keyboard Shortcuts */}

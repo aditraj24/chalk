@@ -35,8 +35,9 @@ CREATE TABLE chats (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) NOT NULL,
   title TEXT NOT NULL,
-  mode TEXT NOT NULL DEFAULT 'focus',           -- 'focus' | 'explore'
+  mode TEXT NOT NULL DEFAULT 'focus',           -- 'focus' | 'agent'
   perf_mode TEXT NOT NULL DEFAULT 'balanced',   -- 'speed' | 'balanced' | 'accuracy'
+  auto_search BOOLEAN NOT NULL DEFAULT true,    -- auto-fallback to web search in Agent mode
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ                        -- soft delete

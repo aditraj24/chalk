@@ -16,15 +16,22 @@ export function useMessages(chatId: string | undefined) {
   });
 }
 
+export interface SearchConfirmationState {
+  reason: string;
+  originalQuery: string;
+  rewrittenQuery: string | null;
+}
+
 interface StreamingState {
   isStreaming: boolean;
   streamedContent: string;
   citations: StreamEvent['citations'];
   error: string | null;
+  searchConfirmation: SearchConfirmationState | null;
 }
 
 /**
- * Hook for sending messages with SSE streaming support.
+ * Hook for sending messages with SSE streaming support and interrupt/resume.
  */
 export function useSendMessage(chatId: string | undefined) {
   const [state, setState] = useState<StreamingState>({
@@ -32,6 +39,7 @@ export function useSendMessage(chatId: string | undefined) {
     streamedContent: '',
     citations: undefined,
     error: null,
+    searchConfirmation: null,
   });
 
   const sendMessage = useCallback(
@@ -43,6 +51,7 @@ export function useSendMessage(chatId: string | undefined) {
         streamedContent: '',
         citations: undefined,
         error: null,
+        searchConfirmation: null,
       });
 
       try {
@@ -60,10 +69,22 @@ export function useSendMessage(chatId: string | undefined) {
                 citations: event.citations,
               }));
               break;
+            case 'search_confirmation':
+              setState((prev) => ({
+                ...prev,
+                isStreaming: false,
+                searchConfirmation: {
+                  reason: event.reason || "Your notes don't fully cover this topic.",
+                  originalQuery: event.originalQuery || content,
+                  rewrittenQuery: event.rewrittenQuery || null,
+                },
+              }));
+              break;
             case 'done':
               setState((prev) => ({
                 ...prev,
                 isStreaming: false,
+                searchConfirmation: null,
               }));
               onComplete?.();
               break;
@@ -71,6 +92,7 @@ export function useSendMessage(chatId: string | undefined) {
               setState((prev) => ({
                 ...prev,
                 isStreaming: false,
+                searchConfirmation: null,
                 error: event.error || 'Unknown error',
               }));
               break;
@@ -87,14 +109,70 @@ export function useSendMessage(chatId: string | undefined) {
     [chatId, state.isStreaming],
   );
 
+  const resumeSearch = useCallback(
+    async (confirmed: boolean, onComplete?: () => void) => {
+      if (!chatId || state.isStreaming) return;
+
+      setState((prev) => ({
+        ...prev,
+        isStreaming: true,
+        searchConfirmation: null,
+        error: null,
+      }));
+
+      try {
+        for await (const event of messageApi.resume(chatId, confirmed)) {
+          switch (event.type) {
+            case 'token':
+              setState((prev) => ({
+                ...prev,
+                streamedContent: prev.streamedContent + (event.content || ''),
+              }));
+              break;
+            case 'citations':
+              setState((prev) => ({
+                ...prev,
+                citations: event.citations,
+              }));
+              break;
+            case 'done':
+              setState((prev) => ({
+                ...prev,
+                isStreaming: false,
+                searchConfirmation: null,
+              }));
+              onComplete?.();
+              break;
+            case 'error':
+              setState((prev) => ({
+                ...prev,
+                isStreaming: false,
+                searchConfirmation: null,
+                error: event.error || 'Unknown error',
+              }));
+              break;
+          }
+        }
+      } catch (error) {
+        setState((prev) => ({
+          ...prev,
+          isStreaming: false,
+          error: error instanceof Error ? error.message : 'Failed to resume search',
+        }));
+      }
+    },
+    [chatId, state.isStreaming],
+  );
+
   const reset = useCallback(() => {
     setState({
       isStreaming: false,
       streamedContent: '',
       citations: undefined,
       error: null,
+      searchConfirmation: null,
     });
   }, []);
 
-  return { ...state, sendMessage, reset };
+  return { ...state, sendMessage, resumeSearch, reset };
 }

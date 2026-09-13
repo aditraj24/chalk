@@ -65,7 +65,7 @@ export function ProjectsModal({
                     </svg>
                   </div>
                   <span className="projects-card-mode text-xs">
-                    {chat.mode === 'focus' ? 'Focus Grounded' : 'Explore Mode'}
+                    {chat.mode === 'focus' ? 'Focus Grounded' : 'Agent Mode'}
                   </span>
                 </div>
                 <h4 className="projects-card-title text-sm truncate">{chat.title}</h4>

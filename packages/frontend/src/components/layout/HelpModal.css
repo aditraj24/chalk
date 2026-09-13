@@ -87,9 +87,10 @@
   color: var(--focus-mode);
 }
 
+.help-mode-pill.agent-tag,
 .help-mode-pill.explore-tag {
   background-color: rgba(107, 123, 140, 0.2);
-  color: var(--explore-mode);
+  color: var(--agent-mode);
 }
 
 .help-list {

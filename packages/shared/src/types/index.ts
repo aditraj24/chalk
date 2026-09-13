@@ -1,6 +1,6 @@
 // ─── Enums ─────────────────────────────────────────────
 
-export type ChatMode = 'focus' | 'explore';
+export type ChatMode = 'focus' | 'agent';
 export type PerfMode = 'speed' | 'balanced' | 'accuracy';
 export type DocumentStatus = 'pending' | 'processing' | 'ready' | 'failed';
 export type DocType = 'notes' | 'reference_book' | 'other';
@@ -21,6 +21,7 @@ export interface Chat {
   title: string;
   mode: ChatMode;
   perfMode: PerfMode;
+  autoSearch: boolean;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -67,16 +68,22 @@ export interface CreateChatRequest {
   title: string;
   mode?: ChatMode;
   perfMode?: PerfMode;
+  autoSearch?: boolean;
 }
 
 export interface UpdateChatRequest {
   title?: string;
   mode?: ChatMode;
   perfMode?: PerfMode;
+  autoSearch?: boolean;
 }
 
 export interface SendMessageRequest {
   content: string;
+}
+
+export interface ResumeSearchRequest {
+  confirmed: boolean;
 }
 
 export interface UploadDocumentRequest {
@@ -102,6 +109,24 @@ export interface CitationMarker {
   label: string; // e.g. "[Doc: Chapter 4 Notes, p.12]"
 }
 
+// ─── Grading Types (retrieve_and_grade subgraph) ───────
+
+/** Structured verdict from the grading LLM */
+export interface GradeVerdict {
+  sufficient: boolean;
+  reason: string;
+}
+
+/** Interrupt payload sent to frontend when waiting for user confirmation */
+export interface SearchConfirmationPayload {
+  type: 'search_confirmation';
+  reason: string;
+  originalQuery: string;
+  rewrittenQuery: string | null;
+}
+
+// ─── Ingestion Types ───────────────────────────────────
+
 export interface IngestionJob {
   documentId: string;
   chatId: string;
@@ -116,3 +141,4 @@ export interface IngestionProgress {
   progress?: number; // 0-100
   error?: string;
 }
+

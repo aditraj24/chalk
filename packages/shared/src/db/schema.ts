@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   integer,
+  boolean,
   jsonb,
   index,
   customType,
@@ -55,8 +56,9 @@ export const chats = pgTable('chats', {
     .references(() => users.id)
     .notNull(),
   title: text('title').notNull(),
-  mode: text('mode').notNull().default('focus'), // 'focus' | 'explore'
+  mode: text('mode').notNull().default('focus'), // 'focus' | 'agent'
   perfMode: text('perf_mode').notNull().default('balanced'), // 'speed' | 'balanced' | 'accuracy'
+  autoSearch: boolean('auto_search').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // soft delete

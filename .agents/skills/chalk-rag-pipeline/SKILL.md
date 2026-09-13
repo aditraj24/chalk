@@ -86,52 +86,59 @@ User query (rewritten) ─┤                                            ├─ 
 
 ### Step 6: Grounded Context Assembly
 - **Focus mode**: instruct LLM to answer ONLY from provided chunks, cite `[Doc: name, p.X]` for each claim
-- **Explore mode**: same retrieval first (prioritize prof material), but LLM may add general knowledge or call Tavily web search (scoped to educational domains: NCERT, OpenStax, Khan Academy, Wikipedia)
-- Response must visually separate "From your notes" vs "Additional context"
+- **Agent mode (formerly Explore)**: evaluates notes sufficiency via `retrieve_and_grade` subgraph. If notes are sufficient, generates grounded answer from notes without searching the web. If notes are insufficient, proceeds to Tavily search (either automatically if `autoSearch: true` or after student confirms via `interrupt()`).
+- Web citations are formatted as `[Web: domain.org]` and prioritized after student notes.
 
 ---
 
 ## LangGraph State Machine
 
-Each chat turn is modeled as an explicit graph:
+### 1. Shared Subgraph: `retrieve_and_grade`
+Both modes use the same self-correcting retrieval loop:
+```
+[Start] ──> [Retrieve] ──> [Rerank] ──> [Grade] (Groq Llama 3.1 8B, temp 0)
+                 ▲                          │
+                 │                          ├── sufficient ──> [Mark Sufficient] ──> [End]
+                 │                          │
+                 └── [Rewrite Query] <──────┴── insufficient (retries < 1)
+                            │
+                            └── retries >= 1 ──> [Mark Insufficient] ──> [End]
+```
 
+### 2. Focus Mode Graph
 ```
 [User Query]
      │
      ▼
-[Query Rewrite Node]       ← conditional: balanced/accuracy modes only
+[retrieve_and_grade Subgraph]
+     │
+     ├── sufficient ──> [Context Assembly Node] ──> [Generation Node] (streamed) ──> [End]
+     │
+     └── insufficient ──> [Fast Exit Node] ("Your notes don't seem to cover this...") ──> [End]
+```
+
+### 3. Agent Mode Graph (with Checkpointer & interrupt())
+```
+[User Query]
      │
      ▼
-[Hybrid Retrieve Node]     ← dense + sparse, scoped to chat_id
+[retrieve_and_grade Subgraph]
      │
-     ▼
-[Rerank Node]              ← conditional: skipped in Speed mode
+     ├── sufficient ──> [Context Assembly Node] ──> [Generation Node] ──> [End]
      │
-     ▼
-[Confidence Check Node]
-     │
-     ├── sufficient ──────────────────────────┐
-     │                                         │
-     └── low confidence                        │
-          ├── Focus → "not in notes" response  │
-          └── Explore → [Web Search Node] ─────┤
-                                               │
-                                               ▼
-                                    [Context Assembly Node]
-                                               │
-                                               ▼
-                                    [Generation Node] (Claude, streamed)
-                                               │
-                                               ▼
-                                    [Citation/Grounding Verification Node]
-                                               │
-                                               ▼
-                                    [Persist Message + Metrics Node]
+     └── insufficient
+              ├── autoSearch: true ──> [Web Search Node] ──> [Context Assembly] ──> [Generation] ──> [End]
+              │
+              └── autoSearch: false ──> [interrupt(SearchConfirmationPayload)]
+                                               │ (Resume via POST /:chatId/messages/resume)
+                                               ├── confirmed: true ──> [Web Search Node] ──> ...
+                                               └── confirmed: false ──> [Notes Only Assembly] ──> [End]
 ```
 
 ### Node Implementation Notes
-- Use LangGraph's persistence (checkpointing) for conversation-level state
-- Streaming: use Claude's streaming API, forward chunks to client via SSE
+- Uses LangGraph's `MemorySaver` checkpointer keyed by `chatId` thread ID for `interrupt()` and `Command({ resume })`
+- Streaming: forwards tokens to client via SSE (`type: 'token'`)
+- Interrupt event: sent via SSE (`type: 'search_confirmation'`) when user confirmation is required
 - Citation verification: post-generation pass checking that claims map to retrieved chunks
 - Metrics: log latency per node, token usage, retrieved chunk IDs (for evaluation)
 

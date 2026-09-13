@@ -74,7 +74,8 @@ ul, ol {
   --color-primary: #5F5B6B;
   --color-primary-hover: #4A4757;
   --focus-mode: #7C8B6F;
-  --explore-mode: #6B7B8C;
+  --agent-mode: #6B7B8C;
+  --explore-mode: var(--agent-mode);
   --warning: #B08D57;
   --error: #A65A4B;
 
@@ -105,7 +106,8 @@ ul, ol {
   --color-primary: #A39FB0;
   --color-primary-hover: #8F8AA0;
   --focus-mode: #9AAB8C;
-  --explore-mode: #8B9DAE;
+  --agent-mode: #8B9DAE;
+  --explore-mode: var(--agent-mode);
   --warning: #C9A876;
   --error: #C17C6E;
 
@@ -293,8 +295,9 @@ ul, ol {
   color: #FFFFFF;
 }
 
+.pill-option.active-agent,
 .pill-option.active-explore {
-  background-color: var(--explore-mode);
+  background-color: var(--agent-mode);
   color: #FFFFFF;
 }
 
@@ -321,8 +324,9 @@ ul, ol {
   color: #FFFFFF;
 }
 
+.citation-chip-agent,
 .citation-chip-explore {
-  background-color: var(--explore-mode);
+  background-color: var(--agent-mode);
   color: #FFFFFF;
 }
 

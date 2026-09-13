@@ -43,17 +43,17 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
           </div>
 
           <div className="help-card">
-            <h3 className="help-card-title font-heading text-sm">Focus Mode vs. Explore Mode</h3>
+            <h3 className="help-card-title font-heading text-sm">Focus Mode vs. Agent Mode</h3>
             <div className="help-mode-item">
               <span className="help-mode-pill focus-tag">Focus</span>
               <p className="text-xs text-secondary">
-                Strict course-material grounding. If an answer isn't in your notes, Chalk tells you honestly rather than hallucinating.
+                Strict course-material grounding. If an answer isn&apos;t in your notes, Chalk tells you honestly rather than hallucinating.
               </p>
             </div>
             <div className="help-mode-item">
-              <span className="help-mode-pill explore-tag">Explore</span>
+              <span className="help-mode-pill agent-tag">Agent</span>
               <p className="text-xs text-secondary">
-                Expands beyond your course notes to web knowledge and broader context when you want deeper explanations or real-world examples.
+                Evaluates retrieved notes and, if insufficient, automatically or with confirmation searches verified academic web sources to fill knowledge gaps.
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 # 🖍️ Chalk — RAG-Powered Study Assistant
 
-> **Chalk** is an intelligent, RAG-powered study assistant designed specifically for students and researchers. Every chat session is scoped to your uploaded course materials (lecture notes, slides, and reference books). Answers are strictly grounded in your materials with exact citations, eliminating hallucinations unless you explicitly switch to **Explore** mode.
+> **Chalk** is an intelligent, RAG-powered study assistant designed specifically for students and researchers. Every chat session is scoped to your uploaded course materials (lecture notes, slides, and reference books). Answers are strictly grounded in your materials with exact citations, eliminating hallucinations unless you explicitly switch to **Agent** mode.
 
 [![Docker Image](https://img.shields.io/badge/Docker%20Hub-r0bince%2Fchalk%3Alatest-blue?logo=docker)](https://hub.docker.com/r/r0bince/chalk)
 
@@ -47,8 +47,10 @@ CLERK_SECRET_KEY=sk_test_...
 # Groq API Key (https://console.groq.com)
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=openai/gpt-oss-120b
+# Grader LLM (Fast model for deterministic evaluation, default: llama-3.1-8b-instant)
+GROQ_GRADER_MODEL=llama-3.1-8b-instant
 
-# Tavily API Key for Explore Mode Web Search (https://tavily.com)
+# Tavily API Key for Agent Mode Web Search (https://tavily.com)
 TAVILY_API_KEY=tvly_...
 
 # ─── Observability (Optional — LangSmith) ─────────────────
@@ -142,20 +144,31 @@ docker logs -f chalk
 
 ## 📖 Application Guide & Overview
 
-Chalk is built around a single guiding principle: **Strict Academic Grounding**. Unlike standard chatbots that hallucinate or mix external web data into coursework, Chalk isolates your study materials into dedicated workspaces.
+Chalk is built around a single guiding principle: **Strict Academic Grounding**. Unlike standard chatbots that hallucinate or mix external web data into coursework, Chalk isolates your study materials into dedicated workspaces and uses a self-correcting evaluation loop before answering.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       CHALK PIPELINE                        │
-│                                                             │
-│   PDF Uploads ──► Ingestion Worker ──► Dense + Sparse Index │
-│                          │                                  │
-│   User Query  ──► Hybrid Retrieval ──► Cross-Reranker       │
-│                          │                                  │
-│                   Grounded Synthesis                        │
-│                          │                                  │
-│             Streaming SSE Response + Citations              │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                          CHALK PIPELINE                          │
+│                                                                  │
+│   PDF Uploads ──► Ingestion Worker ──► Dense + Sparse Index      │
+│                          │                                       │
+│   User Query  ──► Hybrid Retrieval ──► Cross-Reranker            │
+│                          │                                       │
+│               Fast LLM Grader (Groq Llama 3.1 8B)                │
+│                          │                                       │
+│                 Sufficient?                                      │
+│                 ├── YES ──► Grounded Synthesis (Notes Only)      │
+│                 └── NO (Retries < 1) ──► Query Rewrite ──┐       │
+│                                              ▲           │       │
+│                                              └── Loop ───┘       │
+│                                                                  │
+│                 Focus Mode  ──► Fast Exit ("Not covered")        │
+│                 Agent Mode  ──► Auto-Search ON: Tavily Search    │
+│                             ──► Auto-Search OFF: Interrupt &     │
+│                                  Prompt Confirmation             │
+│                          │                                       │
+│             Streaming SSE Response + Dual Citations              │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### 🌟 Key Features
@@ -165,10 +178,12 @@ Chalk is built around a single guiding principle: **Strict Academic Grounding**.
 - Upload lecture slides, syllabi, PDF notes, or textbook chapters.
 - Database queries strictly enforce session isolation (`WHERE chat_id = :chat_id`) to prevent cross-subject contamination.
 
-#### 2. 🎯 Focus vs. 🌐 Explore Modes
-- **Focus Mode (Default)**: Strictly restricts answers to your uploaded documents. If the material does not cover the topic, Chalk clearly tells you so instead of guessing.
-- **Explore Mode**: Seamlessly augments course material with real-time academic web search (via Tavily API) to provide broader context, external proofs, and real-world examples.
-- **Instant Switching**: Change modes with zero UI lag thanks to optimistic cache updates.
+#### 2. 🎯 Focus vs. 🤖 Agent Modes
+- **Shared Self-Correcting Loop (`retrieve_and_grade`)**: Both modes utilize a fast LLM evaluation step (`llama-3.1-8b-instant` on Groq, temperature 0). If retrieved notes do not contain sufficient answers, the grader identifies the missing concept and rewrites the search query for a targeted retry.
+- **Focus Mode (Default)**: Strictly restricts answers to your uploaded documents. If the material does not cover the topic, Chalk clearly tells you so instead of hallucinating. Never calls external web search.
+- **Agent Mode**: Answers from your notes first if they are sufficient. If notes lack coverage:
+  - **Auto-Search ON (Default)**: Seamlessly proceeds to Tavily web search (scoped to educational domains: NCERT, OpenStax, Khan Academy, Wikipedia) and synthesizes an answer with both document and web citations.
+  - **Auto-Search OFF**: Employs LangGraph's `interrupt()` primitive to pause execution and surface an interactive prompt card. You can preview the suggested search query and choose to either search the web or answer using partial notes only.
 
 #### 3. ⚡ Speed / Balanced / Accuracy Modes
 - **Speed (S)**: Fast vector search with low latency for quick concept lookups.
@@ -176,8 +191,9 @@ Chalk is built around a single guiding principle: **Strict Academic Grounding**.
 - **Accuracy (A)**: Hybrid retrieval combined with a neural **Cross-Encoder Reranker** (`Xenova/ms-marco-MiniLM-L-6-v2`) for pinpoint precision on complex questions.
 
 #### 4. 🏷️ Verifiable In-Text Citations
-- Responses include interactive citation chips indicating exact page numbers and source excerpts.
-- Clicking a citation displays the exact text chunk extracted from your PDF.
+- **Document Citations**: Interactive `📄 [Doc: Chapter 4 Notes, p.12]` chips indicating exact page numbers and source excerpts from your uploaded notes.
+- **Web Citations**: Interactive `🌐 [Web: openstax.org]` chips for external material retrieved in Agent mode.
+- Clicking a citation displays the exact text chunk extracted from your material.
 
 #### 5. 🤖 Smart Chat Management
 - **Auto-Naming**: Chats automatically adopt a clean, concise title from your first question.
@@ -191,11 +207,13 @@ Chalk is built around a single guiding principle: **Strict Academic Grounding**.
 |---|---|
 | **Frontend** | React 18, Vite, TanStack Query, Vanilla CSS Design System |
 | **Backend** | Node.js, Express, Server-Sent Events (SSE) |
+| **Orchestration** | LangChain.js & LangGraph.js (State Machine with `interrupt()` & Checkpointing) |
 | **Worker & Queue** | BullMQ, Redis, PDF extraction |
 | **Database** | PostgreSQL + `pgvector` (HNSW) + `tsvector` (BM25) |
 | **Embeddings** | Local ONNX Transformers (`all-MiniLM-L6-v2`) |
 | **Reranking** | Hugging Face Transformers (`ms-marco-MiniLM-L-6-v2`) |
-| **LLM & Search** | Groq (Llama 3 / Mixtral / GPT-OSS), Tavily Search API |
+| **LLM Engine** | Groq (Llama 3.3 70B generation, Llama 3.1 8B Instant grader) |
+| **Web Search** | Tavily Search API (scoped to verified educational domains) |
 | **Authentication** | Clerk Auth |
 | **Storage** | Local Filesystem or AWS S3 |
 

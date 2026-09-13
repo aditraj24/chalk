@@ -84,28 +84,21 @@ Per user query, scoped to `chat_id`:
 | LLM | smaller/faster | mid-tier | strongest available |
 | Query rewriting | off | on | on + multi-query expansion |
 
-### Focus vs Explore Mode
+### Focus vs Agent Mode
 
-- **Focus**: System prompt forbids answering beyond retrieved chunks. If low confidence → "Your notes don't seem to cover this"
-- **Explore**: Same retrieval runs first. LLM may add general knowledge or trigger web search (Tavily, scoped to educational domains). Response visually separates "From your notes" vs "Additional context"
+- **Focus**: System prompt strictly limits answering to retrieved chunks. If insufficient after `retrieve_and_grade` loop → fast-exit with "Your notes don't seem to cover this".
+- **Agent (formerly Explore)**: Self-correcting loop evaluates notes sufficiency. If notes suffice, answers strictly from notes. If notes are insufficient:
+  - If `autoSearch: true`: automatically triggers Tavily search across verified educational domains.
+  - If `autoSearch: false`: interrupts graph and prompts student for confirmation before searching web.
+  - If student declines: synthesizes answer using only available notes, explicitly noting missing topics.
 
 ---
 
 ## LangGraph State Machine (Per Turn)
 
-```
-[User Query]
-     → [Query Rewrite Node] (conditional: balanced/accuracy only)
-     → [Hybrid Retrieve Node] (dense + sparse, scoped to chat_id)
-     → [Rerank Node] (conditional: skipped in Speed mode)
-     → [Confidence Check Node]
-          ├── low confidence + Focus → "not in notes" response
-          └── low confidence + Explore → Web Search Node
-     → [Context Assembly Node]
-     → [Generation Node] (Claude, streamed)
-     → [Citation/Grounding Verification Node]
-     → [Persist Message + Metrics Node]
-```
+- **Shared Subgraph**: `retrieve_and_grade` (Retrieve → Rerank → Grade → optional 1x Query Rewrite loop)
+- **Focus Mode**: `retrieve_and_grade` → sufficient: Context Assembly → Generation | insufficient: Fast Exit
+- **Agent Mode**: `retrieve_and_grade` → sufficient: Context Assembly → Generation | insufficient: autoSearch ? Web Search : interrupt(SearchConfirmation) → Resume → Web Search or Notes-only Generation
 
 ---
 
@@ -121,6 +114,7 @@ POST   /chats/:id/documents            (upload PDFs → triggers ingestion)
 GET    /chats/:id/documents            (list documents + status)
 DELETE /chats/:id/documents/:docId
 POST   /chats/:id/messages             (send query → streamed SSE response)
+POST   /chats/:id/messages/resume      (SSE streaming for interrupted search confirmation)
 GET    /chats/:id/messages             (message history)
 ```
 

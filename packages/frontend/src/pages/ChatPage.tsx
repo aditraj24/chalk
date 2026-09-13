@@ -28,7 +28,13 @@ export function ChatPage() {
   const { data: documents = [] } = useDocuments(chatId);
   const { data: messages = [] } = useMessages(chatId);
   const uploadDocs = useUploadDocuments();
-  const { streamedContent, isStreaming, sendMessage } = useSendMessage(chatId);
+  const {
+    streamedContent,
+    isStreaming,
+    searchConfirmation,
+    sendMessage,
+    resumeSearch,
+  } = useSendMessage(chatId);
 
   const [projectsOpen, setProjectsOpen] = useState(false);
 
@@ -116,10 +122,26 @@ export function ChatPage() {
   );
 
   const handleModeChange = useCallback(
-    (mode: 'focus' | 'explore') => {
+    (mode: 'focus' | 'agent') => {
       if (chatId) updateChat.mutate({ chatId, mode });
     },
     [chatId, updateChat],
+  );
+
+  const handleAutoSearchChange = useCallback(
+    (autoSearch: boolean) => {
+      if (chatId) updateChat.mutate({ chatId, autoSearch });
+    },
+    [chatId, updateChat],
+  );
+
+  const handleResumeSearch = useCallback(
+    (confirmed: boolean) => {
+      resumeSearch(confirmed, () => {
+        queryClient.invalidateQueries({ queryKey: ['messages', chatId] });
+      });
+    },
+    [resumeSearch, queryClient, chatId],
   );
 
   const handlePerfModeChange = useCallback(
@@ -188,15 +210,19 @@ export function ChatPage() {
         <ChatView
           chatId={chatId}
           title={currentChat.title}
-          mode={currentChat.mode as 'focus' | 'explore'}
+          mode={currentChat.mode}
           perfMode={currentChat.perfMode as 'speed' | 'balanced' | 'accuracy'}
+          autoSearch={currentChat.autoSearch ?? true}
           messages={messages}
           documents={documents}
           streamedContent={streamedContent}
           isStreaming={isStreaming}
+          searchConfirmation={searchConfirmation}
           onSend={handleSend}
+          onResumeSearch={handleResumeSearch}
           onModeChange={handleModeChange}
           onPerfModeChange={handlePerfModeChange}
+          onAutoSearchChange={handleAutoSearchChange}
           onTitleChange={handleTitleChange}
           onUploadDocs={handleUploadDocs}
           isUploading={uploadDocs.isPending}

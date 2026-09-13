@@ -1,155 +1,116 @@
-import { chunks, documents } from '@chalk/shared';
-import { TOP_K } from '@chalk/shared';
-import type { RetrievedChunk, CitationMarker } from '@chalk/shared';
-import { eq } from 'drizzle-orm';
-import { getLlm, buildFocusSystemPrompt, buildExploreSystemPrompt } from './llm.js';
-import { getEmbedding, rerankChunks } from './embeddings.js';
+import {
+  TOP_K,
+  AGENT_ALLOWED_DOMAINS,
+} from '@chalk/shared';
+import type {
+  RetrievedChunk,
+  CitationMarker,
+  SearchConfirmationPayload,
+  PerfMode,
+  ChatMode,
+} from '@chalk/shared';
+import { getLlm, buildFocusSystemPrompt, buildAgentSystemPrompt } from './llm.js';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { StateGraph, Annotation } from '@langchain/langgraph';
+import { StateGraph, Annotation, MemorySaver, interrupt, Command } from '@langchain/langgraph';
 import { tavily } from '@tavily/core';
 import { getCachedQuery, setCachedQuery } from './redis.js';
-import { defaultVectorStore } from './vectorStore/pgVector.js';
+import { retrieveAndGradeSubgraph } from './retrieveAndGrade.js';
 
-// ─── RAG Pipeline Types ────────────────────────────────
+// ─── Pipeline Parameters ────────────────────────────────
 
-interface RagPipelineParams {
+export interface RagPipelineParams {
   chatId: string;
   query: string;
-  mode: 'focus' | 'explore';
-  perfMode: 'speed' | 'balanced' | 'accuracy';
+  mode: ChatMode | 'explore';
+  perfMode: PerfMode;
+  autoSearch?: boolean;
+  onToken: (token: string) => void;
+  onCitations: (citations: CitationMarker[]) => void;
+  onInterrupt?: (payload: SearchConfirmationPayload) => void;
+  onComplete: (fullContent: string, chunkIds: string[]) => void;
+  onError: (error: string) => void;
+}
+
+export interface ResumeParams {
+  chatId: string;
+  confirmed: boolean;
   onToken: (token: string) => void;
   onCitations: (citations: CitationMarker[]) => void;
   onComplete: (fullContent: string, chunkIds: string[]) => void;
   onError: (error: string) => void;
 }
 
-// ─── LangGraph State Definition ────────────────────────
+// ─── Shared Checkpointer ────────────────────────────────
 
-const GraphState = Annotation.Root({
+export const checkpointer = new MemorySaver();
+
+// ─── Focus Mode Graph ───────────────────────────────────
+
+const FocusGraphState = Annotation.Root({
   chatId: Annotation<string>(),
   query: Annotation<string>(),
-  mode: Annotation<'focus' | 'explore'>(),
-  perfMode: Annotation<'speed' | 'balanced' | 'accuracy'>(),
+  perfMode: Annotation<PerfMode>(),
   retrievedChunks: Annotation<RetrievedChunk[]>({
-    reducer: (x, y) => y, // Overwrite
+    reducer: (_x, y) => y,
     default: () => [],
   }),
+  status: Annotation<'sufficient' | 'insufficient'>({
+    reducer: (_x, y) => y,
+    default: () => 'insufficient',
+  }),
   contextBlock: Annotation<string>({
-    reducer: (x, y) => y,
-    default: () => "",
+    reducer: (_x, y) => y,
+    default: () => '',
   }),
   citations: Annotation<CitationMarker[]>({
-    reducer: (x, y) => y,
+    reducer: (_x, y) => y,
     default: () => [],
   }),
   generation: Annotation<string>({
-    reducer: (x, y) => y,
-    default: () => "",
+    reducer: (_x, y) => y,
+    default: () => '',
   }),
-  // Callbacks passed down via state for simplicity
   onToken: Annotation<((token: string) => void) | undefined>({
-    reducer: (x, y) => y,
+    reducer: (_x, y) => y,
     default: () => undefined,
   }),
   onCitations: Annotation<((citations: CitationMarker[]) => void) | undefined>({
-    reducer: (x, y) => y,
+    reducer: (_x, y) => y,
     default: () => undefined,
   }),
 });
 
-// ─── LangGraph Nodes ───────────────────────────────────
+async function runRetrieveAndGradeFocusNode(state: typeof FocusGraphState.State) {
+  const result = await retrieveAndGradeSubgraph.invoke({
+    chatId: state.chatId,
+    query: state.query,
+    originalQuery: state.query,
+    perfMode: state.perfMode,
+  });
 
-async function retrieveNode(state: typeof GraphState.State) {
-  const { chatId, query, perfMode } = state;
-  
-  // Dynamic topK based on perfMode
-  const topK = TOP_K[perfMode] || TOP_K.balanced;
-  const candidatePoolSize = perfMode === 'speed' ? topK * 2 : topK * 4;
-
-  // 1. Dense (pgvector)
-  const queryEmbedding = await getEmbedding(query);
-  const denseChunks = await defaultVectorStore.denseRetrieve(chatId, queryEmbedding, candidatePoolSize);
-
-  // 2. Sparse (BM25 pg_search/tsvector)
-  const sparseChunks = await defaultVectorStore.sparseRetrieve(chatId, query, candidatePoolSize);
-
-  // 3. Fusion (RRF)
-  const fusedChunks = fuseRRF(denseChunks, sparseChunks);
-
-  return { retrievedChunks: fusedChunks };
+  return {
+    retrievedChunks: result.retrievedChunks || [],
+    status: result.status,
+  };
 }
 
-async function rerankNode(state: typeof GraphState.State) {
-  const { query, retrievedChunks, perfMode } = state;
-  const topK = TOP_K[perfMode] || TOP_K.balanced;
-
-  if (retrievedChunks.length === 0) return { retrievedChunks: [] };
-
-  // Skip cross-encoder in speed mode to minimize latency
-  if (perfMode === 'speed') {
-    return { retrievedChunks: retrievedChunks.slice(0, topK) };
-  }
-
-  const reranked = await rerankChunks(query, retrievedChunks, topK);
-  return { retrievedChunks: reranked as RetrievedChunk[] };
-}
-
-async function confidenceNode(state: typeof GraphState.State) {
-  // Pass-through node, the real logic is in the edge
-  return {};
-}
-
-async function webSearchNode(state: typeof GraphState.State) {
-  const { query, retrievedChunks } = state;
-  const apiKey = process.env.TAVILY_API_KEY;
-  
-  if (!apiKey) {
-    console.warn('[WebSearch] TAVILY_API_KEY is missing. Skipping web search.');
-    return { retrievedChunks };
-  }
-
-  try {
-    const tvly = tavily({ apiKey });
-    const response = await tvly.search(query, {
-      searchDepth: "basic",
-      includeDomains: ["wikipedia.org", "khanacademy.org", "openstax.org"], // educational domains
-      maxResults: 3,
-    });
-
-    const webChunks: RetrievedChunk[] = response.results.map((r, i) => ({
-      id: `web-${i}-${Date.now()}`,
-      documentId: `web-${i}`, 
-      filename: r.url,
-      content: r.content,
-      pageNumber: null,
-      sectionHeading: r.title,
-      similarity: 1.0, // Top priority
-    }));
-
-    // Prepend web results to context
-    return { retrievedChunks: [...webChunks, ...retrievedChunks] };
-  } catch (error) {
-    console.error('[WebSearch] Failed:', error);
-    return { retrievedChunks };
-  }
-}
-
-async function fastExitNode(state: typeof GraphState.State) {
+async function focusFastExitNode(state: typeof FocusGraphState.State) {
   const { onToken } = state;
-  const noContentMsg = "Your notes don't seem to cover this topic. Try uploading more documents or switch to Explore mode for a broader search.";
+  const noContentMsg =
+    "Your notes don't seem to cover this topic sufficiently. Try uploading more material or switch to Agent mode.";
   if (onToken) onToken(noContentMsg);
   return { generation: noContentMsg };
 }
 
-async function contextNode(state: typeof GraphState.State) {
+async function assembleContextFocusNode(state: typeof FocusGraphState.State) {
   const { retrievedChunks, onCitations } = state;
-  
+
   if (retrievedChunks.length === 0) {
-    return { contextBlock: "", citations: [] };
+    return { contextBlock: '', citations: [] };
   }
 
   const { contextBlock, citations } = buildContext(retrievedChunks);
-  
+
   if (onCitations) {
     onCitations(citations);
   }
@@ -157,13 +118,11 @@ async function contextNode(state: typeof GraphState.State) {
   return { contextBlock, citations };
 }
 
-async function generateNode(state: typeof GraphState.State) {
-  const { query, contextBlock, onToken, mode } = state;
+async function generateFocusNode(state: typeof FocusGraphState.State) {
+  const { query, contextBlock, onToken } = state;
 
   const llm = getLlm(true);
-  const systemPrompt = mode === 'explore' 
-    ? buildExploreSystemPrompt(contextBlock)
-    : buildFocusSystemPrompt(contextBlock);
+  const systemPrompt = buildFocusSystemPrompt(contextBlock);
 
   const stream = await llm.stream([
     new SystemMessage(systemPrompt),
@@ -182,101 +141,349 @@ async function generateNode(state: typeof GraphState.State) {
   return { generation: fullContent };
 }
 
-// ─── Conditional Edges ─────────────────────────────────
-
-function checkConfidence(state: typeof GraphState.State) {
-  const { retrievedChunks, mode, perfMode } = state;
-  
-  if (retrievedChunks.length === 0) {
-    return mode === 'explore' ? 'webSearch' : 'fastExit';
-  }
-
-  // In Speed mode, we skipped reranking so we don't have rerank scores. Just proceed.
-  if (perfMode === 'speed') {
-    return 'context';
-  }
-
-  // If we have rerank scores, check the top chunk's score
-  const topChunk = retrievedChunks[0] as any;
-  const topScore = topChunk.rerankScore ?? 1.0;
-
-  // If confidence is very low (< 0.05)
-  if (topScore < 0.05) {
-    return mode === 'explore' ? 'webSearch' : 'fastExit';
-  }
-
-  return 'context';
+function routeFocusStatus(state: typeof FocusGraphState.State): 'assembleContext' | 'fastExit' {
+  return state.status === 'sufficient' ? 'assembleContext' : 'fastExit';
 }
 
-// ─── Compile LangGraph ─────────────────────────────────
+const focusWorkflow = new StateGraph(FocusGraphState)
+  .addNode('retrieveAndGrade', runRetrieveAndGradeFocusNode)
+  .addNode('assembleContext', assembleContextFocusNode)
+  .addNode('fastExit', focusFastExitNode)
+  .addNode('generate', generateFocusNode)
 
-const workflow = new StateGraph(GraphState)
-  .addNode("retrieve", retrieveNode)
-  .addNode("rerank", rerankNode)
-  .addNode("confidence", confidenceNode)
-  .addNode("webSearch", webSearchNode)
-  .addNode("fastExit", fastExitNode)
-  .addNode("context", contextNode)
-  .addNode("generate", generateNode)
-  
-  .addEdge("__start__", "retrieve")
-  .addEdge("retrieve", "rerank")
-  .addEdge("rerank", "confidence")
-  
-  // Conditional routing based on confidence and mode
-  .addConditionalEdges("confidence", checkConfidence, {
-    "webSearch": "webSearch",
-    "fastExit": "fastExit",
-    "context": "context"
+  .addEdge('__start__', 'retrieveAndGrade')
+  .addConditionalEdges('retrieveAndGrade', routeFocusStatus, {
+    assembleContext: 'assembleContext',
+    fastExit: 'fastExit',
   })
+  .addEdge('assembleContext', 'generate')
+  .addEdge('generate', '__end__')
+  .addEdge('fastExit', '__end__');
 
-  .addEdge("webSearch", "context")
-  .addEdge("context", "generate")
-  .addEdge("generate", "__end__")
-  .addEdge("fastExit", "__end__");
+export const compiledFocusGraph = focusWorkflow.compile();
 
-const compiledGraph = workflow.compile();
+// ─── Agent Mode Graph ───────────────────────────────────
 
-// ─── RAG Pipeline Entry ────────────────────────────────
+const AgentGraphState = Annotation.Root({
+  chatId: Annotation<string>(),
+  query: Annotation<string>(),
+  originalQuery: Annotation<string>(),
+  perfMode: Annotation<PerfMode>(),
+  autoSearch: Annotation<boolean>({
+    reducer: (_x, y) => y,
+    default: () => true,
+  }),
+  retrievedChunks: Annotation<RetrievedChunk[]>({
+    reducer: (_x, y) => y,
+    default: () => [],
+  }),
+  status: Annotation<'sufficient' | 'insufficient'>({
+    reducer: (_x, y) => y,
+    default: () => 'insufficient',
+  }),
+  rewrittenQuery: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
+  gradeReason: Annotation<string>({
+    reducer: (_x, y) => y,
+    default: () => '',
+  }),
+  searchConfirmed: Annotation<boolean | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
+  contextBlock: Annotation<string>({
+    reducer: (_x, y) => y,
+    default: () => '',
+  }),
+  citations: Annotation<CitationMarker[]>({
+    reducer: (_x, y) => y,
+    default: () => [],
+  }),
+  generation: Annotation<string>({
+    reducer: (_x, y) => y,
+    default: () => '',
+  }),
+  onToken: Annotation<((token: string) => void) | undefined>({
+    reducer: (_x, y) => y ?? _x,
+    default: () => undefined,
+  }),
+  onCitations: Annotation<((citations: CitationMarker[]) => void) | undefined>({
+    reducer: (_x, y) => y ?? _x,
+    default: () => undefined,
+  }),
+});
 
-export async function ragPipeline(params: RagPipelineParams): Promise<void> {
-  const { chatId, query, mode, perfMode, onToken, onCitations, onComplete, onError } = params;
+async function runRetrieveAndGradeAgentNode(state: typeof AgentGraphState.State) {
+  const result = await retrieveAndGradeSubgraph.invoke({
+    chatId: state.chatId,
+    query: state.query,
+    originalQuery: state.query,
+    perfMode: state.perfMode,
+  });
+
+  return {
+    retrievedChunks: result.retrievedChunks || [],
+    status: result.status,
+    rewrittenQuery: result.rewrittenQuery || null,
+    gradeReason: result.gradeVerdict?.reason || '',
+  };
+}
+
+function routeAgentStatus(
+  state: typeof AgentGraphState.State,
+): 'assembleContext' | 'webSearch' | 'askConfirmation' {
+  if (state.status === 'sufficient') {
+    return 'assembleContext';
+  }
+
+  if (state.autoSearch) {
+    return 'webSearch';
+  }
+
+  return 'askConfirmation';
+}
+
+async function askConfirmationNode(state: typeof AgentGraphState.State) {
+  const payload: SearchConfirmationPayload = {
+    type: 'search_confirmation',
+    reason: state.gradeReason || "Your notes don't fully cover this topic.",
+    originalQuery: state.originalQuery || state.query,
+    rewrittenQuery: state.rewrittenQuery || null,
+  };
+
+  // Interrupt execution and wait for user confirmation
+  const confirmed = interrupt(payload);
+  return { searchConfirmed: Boolean(confirmed) };
+}
+
+function routeConfirmation(state: typeof AgentGraphState.State): 'webSearch' | 'assembleContextNotesOnly' {
+  return state.searchConfirmed ? 'webSearch' : 'assembleContextNotesOnly';
+}
+
+async function webSearchNode(state: typeof AgentGraphState.State) {
+  const { originalQuery, query, rewrittenQuery, retrievedChunks } = state;
+  const apiKey = process.env.TAVILY_API_KEY;
+  const searchQuery = rewrittenQuery || originalQuery || query;
+
+  if (!apiKey) {
+    console.warn('[WebSearch] TAVILY_API_KEY is missing. Skipping web search.');
+    return { retrievedChunks };
+  }
 
   try {
+    const tvly = tavily({ apiKey });
+    const response = await tvly.search(searchQuery, {
+      searchDepth: 'basic',
+      includeDomains: [...AGENT_ALLOWED_DOMAINS],
+      maxResults: 3,
+    });
+
+    const webChunks: RetrievedChunk[] = response.results.map((r, i) => ({
+      id: `web-${i}-${Date.now()}`,
+      documentId: `web-${i}`,
+      filename: r.url,
+      content: r.content,
+      pageNumber: null,
+      sectionHeading: r.title,
+      similarity: 1.0,
+    }));
+
+    // Combine web results with existing note chunks
+    return { retrievedChunks: [...webChunks, ...retrievedChunks] };
+  } catch (error) {
+    console.error('[WebSearch] Failed:', error);
+    return { retrievedChunks };
+  }
+}
+
+async function assembleContextAgentNode(state: typeof AgentGraphState.State) {
+  const { retrievedChunks, onCitations } = state;
+
+  if (retrievedChunks.length === 0) {
+    return { contextBlock: '', citations: [] };
+  }
+
+  const { contextBlock, citations } = buildContext(retrievedChunks);
+
+  if (onCitations) {
+    onCitations(citations);
+  }
+
+  return { contextBlock, citations };
+}
+
+async function assembleContextNotesOnlyNode(state: typeof AgentGraphState.State) {
+  const { retrievedChunks, onCitations } = state;
+
+  const { contextBlock, citations } = buildContext(retrievedChunks);
+
+  if (onCitations) {
+    onCitations(citations);
+  }
+
+  return { contextBlock, citations };
+}
+
+async function generateAgentNode(state: typeof AgentGraphState.State) {
+  const { originalQuery, query, contextBlock, onToken } = state;
+
+  const llm = getLlm(true);
+  const systemPrompt = buildAgentSystemPrompt(contextBlock);
+
+  const stream = await llm.stream([
+    new SystemMessage(systemPrompt),
+    new HumanMessage(originalQuery || query),
+  ]);
+
+  let fullContent = '';
+  for await (const chunk of stream) {
+    const token = chunk.content as string;
+    if (token) {
+      fullContent += token;
+      if (onToken) onToken(token);
+    }
+  }
+
+  return { generation: fullContent };
+}
+
+async function generateAgentNotesOnlyNode(state: typeof AgentGraphState.State) {
+  const { originalQuery, query, contextBlock, onToken } = state;
+
+  const llm = getLlm(true);
+  const notesOnlyBlock = contextBlock
+    ? `${contextBlock}\n\n[INSTRUCTION]: The student chose not to search the web. Answer using ONLY what was found in their notes above, acknowledging gaps with: "Based only on your notes, here's what I found..."`
+    : `[INSTRUCTION]: The student chose not to search the web and no relevant material was found in their uploaded notes. Clearly state: "Based only on your notes, I couldn't find information on this topic."`;
+
+  const systemPrompt = buildAgentSystemPrompt(notesOnlyBlock);
+
+  const stream = await llm.stream([
+    new SystemMessage(systemPrompt),
+    new HumanMessage(originalQuery || query),
+  ]);
+
+  let fullContent = '';
+  for await (const chunk of stream) {
+    const token = chunk.content as string;
+    if (token) {
+      fullContent += token;
+      if (onToken) onToken(token);
+    }
+  }
+
+  return { generation: fullContent };
+}
+
+const agentWorkflow = new StateGraph(AgentGraphState)
+  .addNode('retrieveAndGrade', runRetrieveAndGradeAgentNode)
+  .addNode('askConfirmation', askConfirmationNode)
+  .addNode('webSearch', webSearchNode)
+  .addNode('assembleContext', assembleContextAgentNode)
+  .addNode('assembleContextNotesOnly', assembleContextNotesOnlyNode)
+  .addNode('generate', generateAgentNode)
+  .addNode('generateNotesOnly', generateAgentNotesOnlyNode)
+
+  .addEdge('__start__', 'retrieveAndGrade')
+  .addConditionalEdges('retrieveAndGrade', routeAgentStatus, {
+    assembleContext: 'assembleContext',
+    webSearch: 'webSearch',
+    askConfirmation: 'askConfirmation',
+  })
+  .addConditionalEdges('askConfirmation', routeConfirmation, {
+    webSearch: 'webSearch',
+    assembleContextNotesOnly: 'assembleContextNotesOnly',
+  })
+  .addEdge('webSearch', 'assembleContext')
+  .addEdge('assembleContext', 'generate')
+  .addEdge('assembleContextNotesOnly', 'generateNotesOnly')
+  .addEdge('generate', '__end__')
+  .addEdge('generateNotesOnly', '__end__');
+
+export const compiledAgentGraph = agentWorkflow.compile({ checkpointer });
+
+// ─── RAG Pipeline Entry Points ─────────────────────────
+
+export async function ragPipeline(params: RagPipelineParams): Promise<void> {
+  const {
+    chatId,
+    query,
+    mode,
+    perfMode,
+    autoSearch = true,
+    onToken,
+    onCitations,
+    onInterrupt,
+    onComplete,
+    onError,
+  } = params;
+
+  try {
+    const normalizedMode: ChatMode = mode === 'explore' ? 'agent' : (mode as ChatMode);
+
     // 0. Check cache
-    const cached = await getCachedQuery(chatId, query, mode, perfMode);
+    const cached = await getCachedQuery(chatId, query, normalizedMode, perfMode);
     if (cached) {
       console.log('[RAG] Cache hit for query');
-      
-      // We must reconstruct citations from the cached chunks
-      // This is a simplified replay of the cache
       if (onToken) onToken(cached.generation);
       onComplete(cached.generation, cached.chunkIds);
       return;
     }
 
-    const initialState = {
-      chatId,
-      query,
-      mode,
-      perfMode,
-      onToken,
-      onCitations,
-      retrievedChunks: [],
-      contextBlock: "",
-      citations: [],
-      generation: "",
-    };
+    if (normalizedMode === 'focus') {
+      const initialState = {
+        chatId,
+        query,
+        perfMode,
+        onToken,
+        onCitations,
+        retrievedChunks: [],
+        contextBlock: '',
+        citations: [],
+        generation: '',
+      };
 
-    // Execute the graph
-    const finalState = await compiledGraph.invoke(initialState);
-    
-    const chunkIds = finalState.retrievedChunks.map((c: RetrievedChunk) => c.id);
-    
-    // Set cache for future
-    await setCachedQuery(chatId, query, mode, perfMode, finalState.generation, chunkIds);
-    
-    onComplete(finalState.generation, chunkIds);
+      const finalState = await compiledFocusGraph.invoke(initialState);
+      const chunkIds = finalState.retrievedChunks.map((c: RetrievedChunk) => c.id);
+
+      await setCachedQuery(chatId, query, 'focus', perfMode, finalState.generation, chunkIds);
+      onComplete(finalState.generation, chunkIds);
+    } else {
+      // Agent mode
+      const initialState = {
+        chatId,
+        query,
+        originalQuery: query,
+        perfMode,
+        autoSearch,
+        onToken,
+        onCitations,
+        retrievedChunks: [],
+        contextBlock: '',
+        citations: [],
+        generation: '',
+      };
+
+      const config = { configurable: { thread_id: chatId } };
+      const rawResult = await compiledAgentGraph.invoke(initialState, config);
+      const interruptList = (rawResult as any)?.__interrupt__;
+
+      // Check if graph was interrupted for user confirmation
+      if (Array.isArray(interruptList) && interruptList.length > 0) {
+        const interruptPayload = interruptList[0]?.value as SearchConfirmationPayload;
+        console.log(`[RAG] Agent mode interrupted for confirmation in chat ${chatId}`);
+        if (onInterrupt && interruptPayload) {
+          onInterrupt(interruptPayload);
+        }
+        return;
+      }
+
+      const finalState = rawResult as typeof AgentGraphState.State;
+      const chunkIds = (finalState.retrievedChunks || []).map((c: RetrievedChunk) => c.id);
+      await setCachedQuery(chatId, query, 'agent', perfMode, finalState.generation || '', chunkIds);
+      onComplete(finalState.generation || '', chunkIds);
+    }
   } catch (error) {
     console.error('[RAG] Pipeline error:', error);
     onError(error instanceof Error ? error.message : 'RAG pipeline failed');
@@ -284,33 +491,41 @@ export async function ragPipeline(params: RagPipelineParams): Promise<void> {
 }
 
 /**
- * Reciprocal Rank Fusion (RRF)
+ * Resume an interrupted Agent mode search after user confirms or declines web search.
  */
-function fuseRRF(listA: RetrievedChunk[], listB: RetrievedChunk[], k: number = 60): RetrievedChunk[] {
-  const scores = new Map<string, { chunk: RetrievedChunk; rrfScore: number }>();
+export async function resumeRagPipeline(params: ResumeParams): Promise<void> {
+  const { chatId, confirmed, onToken, onCitations, onComplete, onError } = params;
 
-  const addToList = (list: RetrievedChunk[]) => {
-    list.forEach((chunk, index) => {
-      const rank = index + 1;
-      const score = 1 / (k + rank);
-      if (scores.has(chunk.id)) {
-        scores.get(chunk.id)!.rrfScore += score;
-      } else {
-        scores.set(chunk.id, { chunk, rrfScore: score });
-      }
-    });
-  };
+  try {
+    const config = { configurable: { thread_id: chatId } };
+    const threadState = await compiledAgentGraph.getState(config);
 
-  addToList(listA);
-  addToList(listB);
+    if (!threadState || !threadState.next || threadState.next.length === 0) {
+      throw new Error('No active search confirmation pending for this chat session.');
+    }
 
-  // Sort descending by RRF score
-  return Array.from(scores.values())
-    .sort((a, b) => b.rrfScore - a.rrfScore)
-    .map((item) => item.chunk);
+    console.log(`[RAG] Resuming search for chat ${chatId}, confirmed: ${confirmed}`);
+
+    const finalState = await compiledAgentGraph.invoke(
+      new Command({
+        resume: confirmed,
+        update: {
+          onToken,
+          onCitations,
+        },
+      }),
+      config,
+    );
+
+    const chunkIds = finalState.retrievedChunks?.map((c: RetrievedChunk) => c.id) || [];
+    onComplete(finalState.generation || '', chunkIds);
+  } catch (error) {
+    console.error('[RAG] Resume error:', error);
+    onError(error instanceof Error ? error.message : 'Failed to resume search');
+  }
 }
 
-// ─── Context Assembly ──────────────────────────────────
+// ─── Context Assembly Helper ────────────────────────────
 
 function buildContext(retrievedChunks: RetrievedChunk[]): {
   contextBlock: string;
@@ -329,11 +544,11 @@ function buildContext(retrievedChunks: RetrievedChunk[]): {
   let chunkCounter = 1;
   for (const [_docId, docChunks] of byDocument) {
     const isWeb = _docId.startsWith('web-');
-    const docName = isWeb ? docChunks[0].filename : docChunks[0].filename.replace('.pdf', '');
+    const docName = isWeb ? docChunks[0].filename : docChunks[0].filename.replace(/\.pdf$/i, '');
     contextParts.push(`\n--- Source: ${docName} ---\n`);
 
     for (const chunk of docChunks) {
-      let citationLabel;
+      let citationLabel: string;
       if (isWeb) {
         citationLabel = `[Web: ${docName}]`;
       } else {
