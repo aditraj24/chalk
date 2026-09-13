@@ -20,8 +20,16 @@
   margin-bottom: 8px;
 }
 
-.home-logo-icon {
-  font-size: 3.5rem;
+.home-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-md);
 }
 
 .home-title {

@@ -80,16 +80,13 @@
 
 /* ─── Ingest Modal ──────────────────────────────────── */
 .ingest-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 90%;
+  position: relative;
+  width: 100%;
   max-width: 500px;
-  max-height: 80vh;
+  max-height: min(85vh, 620px);
   padding: 24px;
-  z-index: 50;
   overflow-y: auto;
+  margin: auto;
 }
 
 .ingest-modal-header {
@@ -102,7 +99,7 @@
 /* ─── Responsive ────────────────────────────────────── */
 @media (max-width: 767px) {
   .chat-header {
-    padding: 8px 12px;
+    padding: 8px 12px 8px 52px;
     flex-direction: column;
     align-items: flex-start;
   }

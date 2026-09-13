@@ -71,9 +71,9 @@ messageRoutes.post(
 
       const db = getDb();
 
-      // Fetch the chat's current mode configuration
+      // Fetch the chat's current mode configuration and title
       const [chatRecord] = await db
-        .select({ mode: chats.mode, perfMode: chats.perfMode })
+        .select({ title: chats.title, mode: chats.mode, perfMode: chats.perfMode })
         .from(chats)
         .where(eq(chats.id, req.chatId!))
         .limit(1);
@@ -81,6 +81,22 @@ messageRoutes.post(
       if (!chatRecord) {
         res.status(404).json({ error: 'Chat not found' });
         return;
+      }
+
+      // Auto-update chat title on first message if still default
+      if (
+        chatRecord.title === 'New Study Session' ||
+        chatRecord.title === 'New Session' ||
+        !chatRecord.title
+      ) {
+        const cleanPrompt = content.trim().replace(/\s+/g, ' ');
+        const autoTitle = cleanPrompt.length > 36 ? cleanPrompt.slice(0, 36).trim() + '...' : cleanPrompt;
+        if (autoTitle) {
+          await db
+            .update(chats)
+            .set({ title: autoTitle, updatedAt: new Date() })
+            .where(eq(chats.id, req.chatId!));
+        }
       }
 
       // Persist the user message

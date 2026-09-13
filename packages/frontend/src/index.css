@@ -84,8 +84,8 @@ ul, ol {
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-full: 9999px;
 
   /* Transitions */
@@ -258,15 +258,18 @@ ul, ol {
 .pill-group {
   display: inline-flex;
   background-color: var(--bg-surface);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   padding: 3px;
   gap: 2px;
   border: 1px solid var(--border-subtle);
 }
 
 .pill-option {
-  padding: 6px 16px;
-  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
   font-size: 0.8125rem;
   font-weight: 500;
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -393,12 +396,25 @@ ul, ol {
 .animate-scale-in { animation: scaleIn 180ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 .animate-pulse { animation: pulse 2s ease-in-out infinite; }
 
-/* ─── Backdrop ──────────────────────────────────────── */
+/* ─── Backdrop & Modal Overlays ─────────────────────── */
 .backdrop {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.4);
   z-index: 40;
+  animation: fadeIn 150ms ease forwards;
+}
+
+.modal-backdrop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  padding: 16px;
   animation: fadeIn 150ms ease forwards;
 }
 
@@ -443,18 +459,23 @@ ul, ol {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  margin-left: 88px; /* Rail width (56px) + margin (16px * 2) */
+  width: 100%;
+  max-width: 100%;
+  transition: margin-left 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (max-width: 1023px) {
-  .main-content {
-    margin-left: 72px; /* Tablet rail */
-  }
+.main-content.with-sidebar {
+  margin-left: 260px;
+}
+
+.main-content.without-sidebar {
+  margin-left: 0;
 }
 
 @media (max-width: 767px) {
-  .main-content {
-    margin-left: 0; /* Mobile: no rail, uses bottom dock */
-    padding-bottom: 80px; /* Space for bottom dock */
+  .main-content.with-sidebar,
+  .main-content.without-sidebar {
+    margin-left: 0;
+    padding-top: 52px;
   }
 }

@@ -1,0 +1,116 @@
+.help-modal {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  max-height: min(85vh, 600px);
+  background-color: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.help-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+}
+
+.help-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.help-close-btn:hover {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.help-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.help-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.help-card-title {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.help-mode-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.help-mode-pill {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.help-mode-pill.focus-tag {
+  background-color: rgba(124, 139, 111, 0.2);
+  color: var(--focus-mode);
+}
+
+.help-mode-pill.explore-tag {
+  background-color: rgba(107, 123, 140, 0.2);
+  color: var(--explore-mode);
+}
+
+.help-list {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: disc;
+}
+
+.help-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+
+.help-done-btn {
+  min-height: 36px;
+  padding: 6px 18px;
+  font-size: 0.8125rem;
+  border-radius: var(--radius-sm);
+}

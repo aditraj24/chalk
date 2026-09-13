@@ -1,7 +1,9 @@
-import { useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Rail } from '../components/layout/Rail';
+import { Sidebar } from '../components/layout/Sidebar';
+import { SidebarToggle } from '../components/layout/SidebarToggle';
 import { CommandSurface } from '../components/layout/CommandSurface';
+import { ProjectsModal } from '../components/layout/ProjectsModal';
 import { ChatView } from '../components/chat/ChatView';
 import { useCommandSurface } from '../hooks/useCommandSurface';
 import { useChats, useCreateChat, useUpdateChat, useDeleteChat } from '../hooks/useChats';
@@ -28,6 +30,37 @@ export function ChatPage() {
   const uploadDocs = useUploadDocuments();
   const { streamedContent, isStreaming, sendMessage } = useSendMessage(chatId);
 
+  const [projectsOpen, setProjectsOpen] = useState(false);
+
+  // Responsive sidebar state: open by default on desktop (>=768px), collapsed on mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+
+  // Sync with window resizing
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    setIsSidebarOpen((prev) => !prev);
+  }, []);
+
+  const handleCloseMobileSidebar = useCallback(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
   const currentChat = chats.find((c) => c.id === chatId);
 
   // Handlers
@@ -51,12 +84,26 @@ export function ChatPage() {
 
   const handleSend = useCallback(
     (content: string) => {
+      // Auto-rename chat if it's the first message and title is still default
+      if (
+        chatId &&
+        currentChat &&
+        (currentChat.title === 'New Study Session' || !currentChat.title) &&
+        messages.length === 0
+      ) {
+        const cleanPrompt = content.trim().replace(/\s+/g, ' ');
+        const autoTitle = cleanPrompt.length > 36 ? cleanPrompt.slice(0, 36).trim() + '...' : cleanPrompt;
+        if (autoTitle) {
+          updateChat.mutate({ chatId, title: autoTitle });
+        }
+      }
+
       sendMessage(content, () => {
         // Refresh messages after streaming completes
         queryClient.invalidateQueries({ queryKey: ['messages', chatId] });
       });
     },
-    [sendMessage, queryClient, chatId],
+    [sendMessage, queryClient, chatId, currentChat, messages.length, updateChat],
   );
 
   const handleUploadDocs = useCallback(
@@ -92,8 +139,23 @@ export function ChatPage() {
   if (!chatId || !currentChat) {
     return (
       <div className="app-layout">
-        <Rail onNewChat={handleNewChat} onOpenChats={openCommand} />
-        <main className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <SidebarToggle isOpen={isSidebarOpen} onToggle={handleToggleSidebar} />
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onToggle={handleToggleSidebar}
+          onCloseMobile={handleCloseMobileSidebar}
+          chats={chats}
+          onNewChat={handleNewChat}
+          onOpenSearch={openCommand}
+          onOpenProjects={() => setProjectsOpen(true)}
+          onSelectChat={handleSelectChat}
+          onRenameChat={(id, title) => updateChat.mutate({ chatId: id, title })}
+          onDeleteChat={(id) => {
+            deleteChat.mutate(id);
+            if (id === chatId) navigate('/');
+          }}
+        />
+        <main className={`main-content ${isSidebarOpen ? 'with-sidebar' : 'without-sidebar'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <p className="text-secondary">Chat not found</p>
         </main>
       </div>
@@ -102,13 +164,27 @@ export function ChatPage() {
 
   return (
     <div className="app-layout">
-      <Rail
+      {/* Floating expand button when sidebar is collapsed */}
+      <SidebarToggle isOpen={isSidebarOpen} onToggle={handleToggleSidebar} />
+
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onToggle={handleToggleSidebar}
+        onCloseMobile={handleCloseMobileSidebar}
+        chats={chats}
+        currentChatId={chatId}
         onNewChat={handleNewChat}
-        onOpenChats={openCommand}
-        documentCount={documents.filter((d) => d.status === 'ready').length}
+        onOpenSearch={openCommand}
+        onOpenProjects={() => setProjectsOpen(true)}
+        onSelectChat={handleSelectChat}
+        onRenameChat={(id, title) => updateChat.mutate({ chatId: id, title })}
+        onDeleteChat={(id) => {
+          deleteChat.mutate(id);
+          if (id === chatId) navigate('/');
+        }}
       />
 
-      <main className="main-content">
+      <main className={`main-content ${isSidebarOpen ? 'with-sidebar' : 'without-sidebar'}`}>
         <ChatView
           chatId={chatId}
           title={currentChat.title}
@@ -137,6 +213,14 @@ export function ChatPage() {
           deleteChat.mutate(id);
           if (id === chatId) navigate('/');
         }}
+      />
+
+      <ProjectsModal
+        isOpen={projectsOpen}
+        onClose={() => setProjectsOpen(false)}
+        chats={chats}
+        onSelectChat={handleSelectChat}
+        onNewChat={handleNewChat}
       />
     </div>
   );

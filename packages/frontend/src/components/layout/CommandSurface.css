@@ -1,20 +1,17 @@
 /* ─── Command Surface ───────────────────────────────── */
 .command-surface {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 90%;
+  position: relative;
+  width: 100%;
   max-width: 560px;
-  max-height: 70vh;
+  max-height: min(75vh, 600px);
   background-color: var(--bg-surface-raised);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 50;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin: auto;
 }
 
 /* ─── Search Header ─────────────────────────────────── */
@@ -144,14 +141,10 @@
 /* ─── Mobile Adjustments ────────────────────────────── */
 @media (max-width: 767px) {
   .command-surface {
-    top: auto;
-    bottom: 0;
-    left: 0;
-    transform: none;
+    margin-top: auto;
+    margin-bottom: 0;
     width: 100%;
     max-width: none;
-    max-height: 70vh;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    animation: slideUp var(--transition-spring) forwards;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
 }

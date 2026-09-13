@@ -162,9 +162,8 @@ export function ChatView({
 
       {/* Ingest Modal Overlay */}
       {showIngest && (
-        <>
-          <div className="backdrop" onClick={() => setShowIngest(false)} />
-          <div className="ingest-modal surface-raised animate-scale-in">
+        <div className="modal-backdrop-overlay" onClick={() => setShowIngest(false)}>
+          <div className="ingest-modal surface-raised animate-scale-in" onClick={(e) => e.stopPropagation()}>
             <div className="ingest-modal-header">
               <h2 className="font-heading text-lg">Documents</h2>
               <button className="btn btn-ghost" onClick={() => setShowIngest(false)}>✕</button>
@@ -175,7 +174,7 @@ export function ChatView({
               isUploading={isUploading}
             />
           </div>
-        </>
+        </div>
       )}
     </div>
   );
